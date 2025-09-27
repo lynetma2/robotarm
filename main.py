@@ -1,7 +1,7 @@
 from tmc_driver.tmc_2209 import *
 from pydualsense import pydualsense
 import time
-tmc = Tmc2209(TmcEnableControlPin(21), TmcMotionControlStepDir(16, 20), TmcComUart("/dev/serial0"))
+tmc = Tmc2209(TmcEnableControlPin(21), TmcMotionControlStepDir(16, 20), TmcComUart("/dev/ttyAMA0"))
 ds = pydualsense() # open controller
 ds.init() # initialize controller
 
