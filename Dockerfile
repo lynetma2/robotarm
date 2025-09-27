@@ -4,6 +4,9 @@ LABEL authors="99sun"
 RUN apt update
 RUN apt install -y gcc
 RUN apt install -y libhidapi-dev
+RUN cp 70-ps5-controller.rules /etc/udev/rules.d
+RUN udevadm control --reload-rules
+RUN udevadm trigger
 
 WORKDIR /usr/src/app
 
