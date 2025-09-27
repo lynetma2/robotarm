@@ -1,6 +1,9 @@
 FROM python:3.11-slim
 LABEL authors="99sun"
 
+RUN apt update
+RUN apt install -y gcc
+
 WORKDIR /usr/src/app
 
 COPY . .
