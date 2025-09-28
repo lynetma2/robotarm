@@ -5,6 +5,9 @@ tmc = Tmc2209(TmcEnableControlPin(21), TmcMotionControlStepDir(16, 20), TmcComUa
 ds = pydualsense() # open controller
 ds.init() # initialize controller
 
+tmc.tmc_logger.loglevel = Loglevel.DEBUG
+tmc.movement_abs_rel = MovementAbsRel.ABSOLUTE
+
 tmc.set_direction_reg(False)
 tmc.set_current(300)
 tmc.set_interpolation(True)
