@@ -45,7 +45,6 @@ class DualSenseManager(Thread):
         while True:
             if self.ds is None:
                 self.init_controller()
-            time.sleep(5)
 
     def on_right_stick(self, stateX, stateY):
         # ... (joystick logic to put commands on the queue)
@@ -56,6 +55,7 @@ class DualSenseManager(Thread):
         # TODO design command scheme.
 
     def on_cross_down(self, state):
+        self.app.logger.info(f"Cross Down: {state}")
         if self.motor_enabled:
             self.motor_enabled = False
             self.command_queue.put({'action': 'stop'})
