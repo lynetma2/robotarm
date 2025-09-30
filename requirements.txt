@@ -9,3 +9,5 @@ pyserial==3.5
 PyTmcStepper==0.7.6
 rpi-lgpio==0.6
 RPi.GPIO==0.7.1
+Flask~=3.1.2
+Flask-SocketIO~=5.5.1

@@ -55,8 +55,12 @@ cover/
 *.mo
 *.pot
 
-# Django stuff:
+
+# Log files
+logs/
 *.log
+
+
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -120,8 +124,8 @@ ipython_config.py
 # pixi
 #   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
 #pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
+#   Pixi creates a virtual environment in the .pixi directory, just like .venv module creates one
+#   in the ..venv directory. It is recommended not to include this directory in version control.
 .pixi
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
@@ -139,7 +143,7 @@ celerybeat.pid
 .envrc
 .venv
 env/
-venv/
+.venv/
 ENV/
 env.bak/
 venv.bak/
