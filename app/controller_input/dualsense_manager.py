@@ -47,6 +47,7 @@ class DualSenseManager(Thread):
                 self.init_controller()
 
     def on_right_stick(self, stateX, stateY):
+        self.app.logger.info(f"Right stick: stateX={stateX}, stateY={stateY}")
         # ... (joystick logic to put commands on the queue)
         deadzone = 10
         velocity = 0 if abs(stateY) < deadzone else int((stateY / 127.0) * 500)

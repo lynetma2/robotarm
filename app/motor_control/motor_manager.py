@@ -41,6 +41,7 @@ class MotorManager(Thread):
             time.sleep(1)
 
         with self.app.app_context():
+            self.app.logger.info("MotorManager thread started.")
             while True:
                 # 1. Process commands from the queue
                 if not self.command_queue.empty():
