@@ -51,7 +51,8 @@ class MotorManager(Thread):
                     self.command_handler(command)
 
                 # 2. Get and publish diagnostics (state)
-                current_state = {'microstep_counter_in_steps': self.tmc.get_microstep_counter_in_steps(),'current_pos': self.tmc.current_pos}
+                #current_state = {'microstep_counter_in_steps': self.tmc.get_microstep_counter_in_steps(),'current_pos': self.tmc.current_pos}
+                current_state = "Test message"
                 self.socketio.emit('diagnostics_update', current_state)
 
                 time.sleep(0.05)  # Loop delay
