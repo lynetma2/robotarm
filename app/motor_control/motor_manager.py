@@ -27,7 +27,8 @@ class MotorManager(Thread):
         self.app = None
         self.socketio = None
         self.command_queue = Queue()
-        self.tmc = _motor_init()
+        self.tmc = None
+        # self.tmc = _motor_init() # Comment this line out
 
     def set_app_context(self, app, socketio):
         self.app = app
@@ -58,11 +59,11 @@ class MotorManager(Thread):
     def vactual(self, speed):
         self.tmc.set_vactual(speed)
 
-    def stop(self):
+    def disable_motor(self):
         self.tmc.set_vactual(0)
         self.tmc.set_motor_enabled(False)
 
-    def start(self):
+    def enable_motor(self):
         self.tmc.set_motor_enabled(True)
 
     def command_handler(self, command):
@@ -70,11 +71,11 @@ class MotorManager(Thread):
             action = command['action']
 
             if action == 'stop':
-                self.stop()
+                self.disable_motor()
             elif action == 'set_vactual':
                 self.vactual(command['velocity'])
             elif action == 'start':
-                self.start()
+                self.enable_motor()
             else:
                 self.app.logger.warning(f"Unknown command action: {action}")
 
