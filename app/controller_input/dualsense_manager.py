@@ -51,6 +51,7 @@ class DualSenseManager(Thread):
         # ... (joystick logic to put commands on the queue)
         deadzone = 10
         velocity = 0 if abs(stateY) < deadzone else int((stateY / 127.0) * 500)
+        self.app.logger.info(f"Right stick: velocity={velocity}")
         self.command_queue.put({'action': 'set_vactual', 'velocity': velocity})
 
         # TODO design command scheme.

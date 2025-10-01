@@ -57,7 +57,7 @@ class MotorManager(Thread):
                 #current_state = "Test message"
                 self.socketio.emit('diagnostics_update', current_state)
 
-                time.sleep(0.05)  # Loop delay
+                time.sleep(0.1)  # Loop delay
 
     def vactual(self, speed):
         self.tmc.set_vactual(speed)
@@ -74,10 +74,13 @@ class MotorManager(Thread):
             action = command['action']
 
             if action == 'stop':
+                self.app.logger.info(f"Disabling the motor: {command}")
                 self.disable_motor()
             elif action == 'set_vactual':
+                self.app.logger.info(f"set_vactual: {command['velocity']}")
                 self.vactual(command['velocity'])
             elif action == 'start':
+                self.app.logger.info(f"Enabling the motor: {command}")
                 self.enable_motor()
             else:
                 self.app.logger.warning(f"Unknown command action: {action}")
