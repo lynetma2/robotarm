@@ -27,7 +27,7 @@ void writeRequestDatagram(uart_port_t uart_num, uint8_t address, uint8_t reg);
 uint64_t readResponseDatagram(uart_port_t uart_num);
 
 //Write request
-void request(uart_port_t uart_num, uint8_t address, uint8_t reg);
+void tmc2209_request(uart_port_t uart_num, uint8_t address, uint8_t reg);
 
 // Implementation
 uint8_t getStartCRC(uint8_t address)
@@ -114,7 +114,7 @@ uint32_t createResponseDatagram(uint64_t datagram)
     return reverseBytes(data);
 }
 
-void write(uart_port_t uart_num, uint8_t address, uint8_t reg, uint32_t data)
+void tmc2209_write(uart_port_t uart_num, uint8_t address, uint8_t reg, uint32_t data)
 {
     //Maybe should check if the uart_port is installed first.
     uint64_t datagram = createWriteDatagram(address, reg, data);
@@ -131,7 +131,7 @@ void write(uart_port_t uart_num, uint8_t address, uint8_t reg, uint32_t data)
     }
 }
 
-void request(uart_port_t uart_num, uint8_t address, uint8_t reg)
+void tmc2209_request(uart_port_t uart_num, uint8_t address, uint8_t reg)
 {
     //Maybe should check if the uart_port is installed first.
     uint32_t datagram = createReadDatagram(address, reg);
@@ -140,6 +140,8 @@ void request(uart_port_t uart_num, uint8_t address, uint8_t reg)
     uart_wait_tx_done(uart_num, 100);
     uart_flush(uart_num);
     uint8_t send_buffer = 0;
+
+    printf("Sent the request: %lu\n", datagram);
 
     for (uint8_t i = 0; i < 4; ++i)
     {
@@ -153,14 +155,19 @@ uint64_t readResponseDatagram(uart_port_t uart_num)
     uint64_t reply = 0;
     uint64_t discardBuffer = 0;
     uint64_t actual_reply = 0;
+    size_t length = 0;
 
     //Ensure all the earlier communication has been finished
     uart_wait_tx_done(uart_num, 100);
     uart_flush(uart_num);
 
     //Clean the buffer
-    while (uart_get_buffered_data_len(uart_num, sizeof(discardBuffer)) > 0)
+    uart_get_buffered_data_len(uart_num, &length);
+    while (length > 0)
+    {
         uart_read_bytes(uart_num, &discardBuffer, sizeof(discardBuffer), portMAX_DELAY);
+        uart_get_buffered_data_len(uart_num, &length);
+    }
 
     //Maybe should check if the uart_port is installed first.
     uart_read_bytes(uart_num, &reply, sizeof(reply), 1 / portTICK_PERIOD_MS);
@@ -171,9 +178,9 @@ uint64_t readResponseDatagram(uart_port_t uart_num)
     return actual_reply;
 }
 
-uint32_t read(uart_port_t uart_num, uint8_t address, uint8_t reg)
+uint32_t tmc2209_read(uart_port_t uart_num, uint8_t address, uint8_t reg)
 {
-    request(uart_num, address, reg);
+    tmc2209_request(uart_num, address, reg);
     uint64_t datagram = readResponseDatagram(uart_num);
     return createResponseDatagram(datagram);
 }
@@ -182,68 +189,68 @@ void writeGCONF(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->GCONF.UINT32 = value;
-    write(config->uart_num, config->address, ADDRESS_GCONF, config->GCONF.UINT32);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_GCONF, config->GCONF.UINT32);
 }
 
 void writeIHOLD_IRUN(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->IHOLD_IRUN.UINT32 = value;
-    write(config->uart_num, config->address, ADDRESS_IHOLD_IRUN, config->IHOLD_IRUN.UINT32);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_IHOLD_IRUN, config->IHOLD_IRUN.UINT32);
 }
 
 void writeCHOPCONF(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->CHOPCONF.UINT32 = value;
-    write(config->uart_num, config->address, ADDRESS_CHOPCONF, config->CHOPCONF.UINT32);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_CHOPCONF, config->CHOPCONF.UINT32);
 }
 
 void writePWMCONF(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->PWMCONF.UINT32 = value;
-    write(config->uart_num, config->address, ADDRESS_PWMCONF, config->PWMCONF.UINT32);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_PWMCONF, config->PWMCONF.UINT32);
 }
 
 void writeCOOLCONF(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->COOLCONF.UINT32 = value;
-    write(config->uart_num, config->address, ADDRESS_COOLCONF, config->COOLCONF.UINT32);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_COOLCONF, config->COOLCONF.UINT32);
 }
 
 void writeTCOOLTHRS(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->TCOOLTHRS.UINT32 = value;
-    write(config->uart_num, config->address, ADDRESS_TCOOLTHRS, config->TCOOLTHRS.UINT32);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_TCOOLTHRS, config->TCOOLTHRS.UINT32);
 }
 
 void writeTPWMTHRS(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->TPWMTHRS.UINT32 = value;
-    write(config->uart_num, config->address, ADDRESS_TPWMTHRS, config->TPWMTHRS.UINT32);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_TPWMTHRS, config->TPWMTHRS.UINT32);
 }
 
 void writeSGTHRS(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->SGTHRS = value;
-    write(config->uart_num, config->address, ADDRESS_SGTHRS, config->SGTHRS);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_SGTHRS, config->SGTHRS);
 }
 
 void writeTPOWERDOWN(TMC2209_UNIT *config, uint32_t value)
 {
     if (value != UINT32_MAX)
         config->TPOWERDOWN = value;
-    write(config->uart_num, config->address, ADDRESS_TPOWERDOWN, config->TPOWERDOWN);
+    tmc2209_write(config->uart_num, config->address, ADDRESS_TPOWERDOWN, config->TPOWERDOWN);
 }
 
 uint32_t readIOIN(TMC2209_UNIT *config)
 {
-    uint32_t data = read(config->uart_num, config->address, ADDRESS_IOIN);
+    uint32_t data = tmc2209_read(config->uart_num, config->address, ADDRESS_IOIN);
     if (data != UINT32_MAX)
         config->IOIN.UINT32 = data;
     return data;
@@ -251,7 +258,7 @@ uint32_t readIOIN(TMC2209_UNIT *config)
 
 uint32_t readSG_RESULT(TMC2209_UNIT *config)
 {
-    uint32_t data = read(config->uart_num, config->address, ADDRESS_SG_RESULT);
+    uint32_t data = tmc2209_read(config->uart_num, config->address, ADDRESS_SG_RESULT);
     if (data != UINT32_MAX)
         config->SG_RESULT = data;
     return data;
@@ -259,7 +266,7 @@ uint32_t readSG_RESULT(TMC2209_UNIT *config)
 
 uint32_t readIFCNT(TMC2209_UNIT *config)
 {
-    uint32_t data = read(config->uart_num, config->address, ADDRESS_IFCNT);
+    uint32_t data = tmc2209_read(config->uart_num, config->address, ADDRESS_IFCNT);
     if (data != UINT32_MAX)
         config->IFCNT = data;
     return data;

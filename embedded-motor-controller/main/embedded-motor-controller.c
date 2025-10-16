@@ -35,7 +35,8 @@ void app_main(void)
     unsigned major_rev = chip_info.revision / 100;
     unsigned minor_rev = chip_info.revision % 100;
     printf("silicon revision v%d.%d, ", major_rev, minor_rev);
-    if(esp_flash_get_size(NULL, &flash_size) != ESP_OK) {
+    if (esp_flash_get_size(NULL, &flash_size) != ESP_OK)
+    {
         printf("Get flash size failed");
         return;
     }
@@ -44,9 +45,8 @@ void app_main(void)
            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
-
     printf("Activating UART with following config");
-/*     const int uart_num = 2;
+    const int uart_num = 2;
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -55,36 +55,20 @@ void app_main(void)
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
     };
     const int uart_buffer_size = (1024 * 2);
-    QueueHandle_t uart_queue; */
+    QueueHandle_t uart_queue;
 
     //Configure UART parameters
-    //ESP_ERROR_CHECK(uart_driver_install(uart_num, uart_buffer_size, uart_buffer_size, 0, NULL, 0));
-    //ESP_ERROR_CHECK(uart_param_config(uart_num, &uart_config));
-    //ESP_ERROR_CHECK(uart_set_pin(uart_num, 16, 17, -1, -1));
-
-
-    printf("This is a test\n");
+    ESP_ERROR_CHECK(uart_driver_install(uart_num, uart_buffer_size, uart_buffer_size, 10, &uart_queue, 0));
+    ESP_ERROR_CHECK(uart_param_config(uart_num, &uart_config));
+    ESP_ERROR_CHECK(uart_set_pin(uart_num, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, -1, -1));
 
     TMC2209_UNIT tmc2209_unit;
-    //uart_wait_tx_done(uart_num, 100);
     bool result = init_tmc2209_default(2, TMC2209_ADR_0, &tmc2209_unit);
-    // if (!result)
-    // {
-    //     printf("TMC2209 Did not initialize correctly - restarting");
-    //     for (int i = 10; i >= 0; i--) {
-    //         printf("Restarting in %d seconds...\n", i);
-    //         vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //     }
-    //     printf("Restarting now.\n");
-    //     fflush(stdout);
-    //     esp_restart();
-    // }
 
-    //uint32_t data = readIOIN(&tmc2209_unit);
-    //printf("IOIN: %" PRIu32 "\n", data);
+    printf("TMC2209 available: %d\n", result);
 
-
-    for (int i = 10; i >= 0; i--) {
+    for (int i = 10; i >= 0; i--)
+    {
         printf("Restarting in %d seconds...\n", i);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }

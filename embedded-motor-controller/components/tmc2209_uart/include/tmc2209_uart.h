@@ -68,7 +68,7 @@ typedef union
  * @param reg The register address to write to.
  * @param data The 32-bit data value to write into the register.
  */
-void write(uart_port_t uart_num, uint8_t address, uint8_t reg, uint32_t data);
+void tmc2209_write(uart_port_t uart_num, uint8_t address, uint8_t reg, uint32_t data);
 
 /**
  * @brief Reads data from a specific register of a TMC2209 driver.
@@ -80,7 +80,7 @@ void write(uart_port_t uart_num, uint8_t address, uint8_t reg, uint32_t data);
  * @param reg The register address to read from.
  * @return The 32-bit data value read from the register. Returns 0 on communication failure.
  */
-uint32_t read(uart_port_t uart_num, uint8_t address, uint8_t reg);
+uint32_t tmc2209_read(uart_port_t uart_num, uint8_t address, uint8_t reg);
 
 
 /*******************************************************************************
