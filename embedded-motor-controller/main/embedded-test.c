@@ -61,7 +61,7 @@ typedef struct
 #define UART_TASK_STACK_SIZE (2048)
 #define MOTOR_TASK_STACK_SIZE (2048)
 
-static QueueHandle_t commandQueue = NULL;
+static QueueHandle_t motorQueues[NUM_MOTORS];
 static MotorConfig motors[NUM_MOTORS];
 
 void motor_init(MotorConfig *motor)
@@ -99,21 +99,26 @@ void motor_init(MotorConfig *motor)
     ESP_ERROR_CHECK(rmt_enable(motor->rmt_channel));
 }
 
+// This one task is spawned 3 times.
 void motor_task(void *pvParameters)
 {
+    // The parameter is the motor ID
+    int motor_id = (int)pvParameters;
+
+    // Get this task's specific motor config
+    MotorConfig *motor = &motors[motor_id];
+    // Get this task's specific queue
+    QueueHandle_t queue = motorQueues[motor_id];
+
+    ESP_LOGI(TAG, "Motor Task %d started.", motor_id);
+
     MotorCommand cmd;
 
     while (1) {
-        // Wait for a command to arrive from the queue
-        if (xQueueReceive(commandQueue, &cmd, portMAX_DELAY)) {
-            ESP_LOGI(TAG, "Received command for motor %d: %u steps", cmd.motor_id, cmd.accel_steps + cmd.uniform_steps + cmd.decel_steps);
-
-            // Get the motor config
-            if (cmd.motor_id >= NUM_MOTORS) {
-                ESP_LOGE(TAG, "Invalid motor_id: %d", cmd.motor_id);
-                continue; // Skip this command
-            }
-            MotorConfig *motor = &motors[cmd.motor_id];
+        // Wait for a command to arrive from this motor's specific queue
+        if (xQueueReceive(queue, &cmd, portMAX_DELAY)) {
+            ESP_LOGI(TAG, "[Motor %d] Received command: %u steps",
+                     motor_id, cmd.accel_steps + cmd.uniform_steps + cmd.decel_steps);
 
             // --- 1. Delete old encoders (if they exist) ---
             if (motor->accel_encoder) {
@@ -154,31 +159,28 @@ void motor_task(void *pvParameters)
             // --- 3. Set direction and enable motor ---
             gpio_set_level(motor->dir_gpio, cmd.direction);
             gpio_set_level(motor->en_gpio, STEP_MOTOR_ENABLE_LEVEL);
-            vTaskDelay(pdMS_TO_TICKS(10)); // Small delay for driver to stabilize
+            vTaskDelay(pdMS_TO_TICKS(10));
 
             // --- 4. Transmit the new profiles ---
             rmt_transmit_config_t tx_config = { .loop_count = 0 };
 
-            // Acceleration
             if (cmd.accel_steps > 0) {
                 ESP_ERROR_CHECK(rmt_transmit(motor->rmt_channel, motor->accel_encoder, &cmd.accel_steps, sizeof(cmd.accel_steps), &tx_config));
             }
-            // Uniform
             if (cmd.uniform_steps > 0) {
                 tx_config.loop_count = cmd.uniform_steps;
                 ESP_ERROR_CHECK(rmt_transmit(motor->rmt_channel, motor->uniform_encoder, &cmd.uniform_freq_hz, sizeof(cmd.uniform_freq_hz), &tx_config));
             }
-            // Deceleration
             if (cmd.decel_steps > 0) {
                 tx_config.loop_count = 0;
                 ESP_ERROR_CHECK(rmt_transmit(motor->rmt_channel, motor->decel_encoder, &cmd.decel_steps, sizeof(cmd.decel_steps), &tx_config));
             }
 
-            // --- 5. Wait for move to finish and disable motor ---
+            // This task will block *here*, but other motor tasks can run.
             ESP_ERROR_CHECK(rmt_tx_wait_all_done(motor->rmt_channel, -1));
             gpio_set_level(motor->en_gpio, !STEP_MOTOR_ENABLE_LEVEL);
 
-            ESP_LOGI(TAG, "Motor %d move complete.", cmd.motor_id);
+            ESP_LOGI(TAG, "[Motor %d] Move complete.", motor_id);
         }
     }
 }
@@ -248,7 +250,7 @@ void serial_task(void *pvParameters)
                                 cmd.end_freq_hz = end_freq->valueint;
 
                                 // Send the command to the queue
-                                if (xQueueSend(commandQueue, &cmd, pdMS_TO_TICKS(10)) != pdTRUE) {
+                                if (xQueueSend(motorQueues[cmd.motor_id], &cmd, pdMS_TO_TICKS(10)) != pdTRUE) {
                                     ESP_LOGE(TAG, "Failed to send command to queue (queue full)");
                                 }
                             } else {
@@ -274,10 +276,12 @@ void app_main(void)
     ESP_LOGI(TAG, "Starting Motor Control Application");
 
     // --- 1. Create the command queue ---
-    commandQueue = xQueueCreate(10, sizeof(MotorCommand)); // Queue can hold 10 commands
-    if (commandQueue == NULL) {
-        ESP_LOGE(TAG, "Failed to create command queue");
-        return;
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        motorQueues[i] = xQueueCreate(10, sizeof(MotorCommand)); // Queue can hold 10 commands
+        if (motorQueues[i] == NULL) {
+            ESP_LOGE(TAG, "Failed to create command queue for motor %d", i);
+            return;
+        }
     }
 
     // --- 2. Configure Motor 0 ---
@@ -300,7 +304,14 @@ void app_main(void)
 
     // --- 4. Create Tasks ---
     xTaskCreate(serial_task, "serial_task", UART_TASK_STACK_SIZE, NULL, 5, NULL);
-    //xTaskCreate(motor_task, "motor_task", MOTOR_TASK_STACK_SIZE, NULL, 10, NULL); // Motor task has higher priority
+
+    // for (int i = 0; i < NUM_MOTORS; i++) {
+    //     char task_name[20];
+    //     sprintf(task_name, "motor_task_%d", i);
+    //
+    //     // Pass the motor ID (i) as the task parameter
+    //     xTaskCreate(motor_task, task_name, MOTOR_TASK_STACK_SIZE, (void *)i, 10, NULL);
+    // }
 
     ESP_LOGI(TAG, "Initialization complete. Tasks started.");
 }
