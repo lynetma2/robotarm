@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 Serial Relay</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; }
+        #messages {
+            width: 500px;
+            height: 300px;
+            border: 1px solid #ccc;
+            background: #fff;
+            padding: 10px;
+            overflow-y: scroll;
+            margin-top: 10px;
+        }
+        .msg {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+<h2>ESP32 Serial Monitor</h2>
+<div id="status">Connecting...</div>
+<div id="messages"></div>
+
+<script>
+    let stompClient = null;
+    const messagesDiv = document.getElementById('messages');
+    const statusDiv = document.getElementById('status');
+
+    function connect() {
+        // Create a new SockJS connection to our endpoint
+        var socket = new SockJS('/serial-websocket');
+
+        // Create a STOMP client over the SockJS connection
+        stompClient = Stomp.over(socket);
+
+        // Connect to the STOMP broker
+        stompClient.connect({}, function (frame) {
+            statusDiv.innerHTML = 'Connected!';
+            statusDiv.style.color = 'green';
+            console.log('Connected: ' + frame);
+
+            // Subscribe to the "/topic/serial" topic
+            // All messages from the server on this topic will be
+            // routed to the 'onMessageReceived' function.
+            stompClient.subscribe('/topic/serial', onMessageReceived);
+        }, onError);
+    }
+
+    function onError(error) {
+        statusDiv.innerHTML = 'Could not connect. Retrying...';
+        statusDiv.style.color = 'red';
+        console.error('STOMP error: ' + error);
+        // Reconnect after 5 seconds
+        setTimeout(connect, 5000);
+    }
+
+    function onMessageReceived(payload) {
+        // Parse the message body (which is a string from our ESP32)
+        var message = payload.body;
+
+        // Create a new div for the message and add it to the top
+        var msgElement = document.createElement('div');
+        msgElement.classList.add('msg');
+        msgElement.textContent = message;
+        messagesDiv.prepend(msgElement);
+    }
+
+    // Start the connection
+    connect();
+</script>
+</body>
+</html>
