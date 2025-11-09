@@ -30,10 +30,10 @@ public class SerialPortService implements CommandLineRunner, SerialPortDataListe
         // Find the correct port
         // You'll need to change "COM3" to your ESP32's port
         // On Mac/Linux, it will be something like "/dev/tty.usbserial-XXXX"
-        commPort = SerialPort.getCommPort("COM3"); // <--- IMPORTANT: SET YOUR PORT HERE
+        commPort = SerialPort.getCommPort("COM5"); // <--- IMPORTANT: SET YOUR PORT HERE
 
         // Set port parameters (must match your ESP32's Serial.begin())
-        commPort.setBaudRate(9600);
+        commPort.setBaudRate(115200);
         commPort.setNumDataBits(8);
         commPort.setNumStopBits(1);
         commPort.setParity(SerialPort.NO_PARITY);
@@ -61,6 +61,8 @@ public class SerialPortService implements CommandLineRunner, SerialPortDataListe
 
     @Override
     public void serialEvent(SerialPortEvent event) {
+        logger.info("Got serial event!");
+
         if (event.getEventType() != SerialPort.LISTENING_EVENT_DATA_AVAILABLE) {
             return; // Ignore other event types
         }
