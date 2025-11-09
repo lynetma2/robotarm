@@ -1,8 +1,8 @@
 package com.sundtrack.robotarm;
 
 import com.fazecast.jSerialComm.SerialPort;
-import com.fazecast.jSerialComm.SerialPortDataListener;
 import com.fazecast.jSerialComm.SerialPortEvent;
+import com.fazecast.jSerialComm.SerialPortMessageListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,11 +13,10 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 
 @Service
-public class SerialPortService implements CommandLineRunner, SerialPortDataListener {
+public class SerialPortService implements CommandLineRunner, SerialPortMessageListener {
 
     private static final Logger logger = LoggerFactory.getLogger(SerialPortService.class);
 
-    // This template is our gateway to send messages to WebSocket clients
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
@@ -27,57 +26,62 @@ public class SerialPortService implements CommandLineRunner, SerialPortDataListe
     public void run(String... args) throws Exception {
         logger.info("Starting SerialPortService...");
 
-        // Find the correct port
-        // You'll need to change "COM3" to your ESP32's port
-        // On Mac/Linux, it will be something like "/dev/tty.usbserial-XXXX"
-        commPort = SerialPort.getCommPort("COM5"); // <--- IMPORTANT: SET YOUR PORT HERE
+        // *** SET YOUR PORT HERE ***
+        // (e.g., "COM3" on Windows, "/dev/ttyUSB0" on Linux)
+        commPort = SerialPort.getCommPort("COM3");
 
-        // Set port parameters (must match your ESP32's Serial.begin())
+        // Set port parameters
         commPort.setBaudRate(115200);
         commPort.setNumDataBits(8);
         commPort.setNumStopBits(1);
         commPort.setParity(SerialPort.NO_PARITY);
 
-        // Try to open the port
         if (commPort.openPort()) {
             logger.info("Successfully opened port: {}", commPort.getSystemPortName());
 
-            // Set a timeout for reading
-            commPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING, 1000, 0);
-
-            // Add this class as a listener
+            // --- THIS IS THE IMPORTANT PART ---
+            // Remove the setComPortTimeouts line completely
+            // Add this class as a message listener
             commPort.addDataListener(this);
         } else {
             logger.error("Failed to open port: {}", commPort.getSystemPortName());
-            logger.warn("Please ensure no other program (like Arduino IDE) is using the port.");
+            logger.warn("Please ensure no other program is using the port.");
         }
     }
+
+    // --- NEW METHODS FOR SerialPortMessageListener ---
 
     @Override
     public int getListeningEvents() {
-        // We want to be notified when new data is available
-        return SerialPort.LISTENING_EVENT_DATA_AVAILABLE;
+        // This tells the listener to fire when data is received
+        return SerialPort.LISTENING_EVENT_DATA_RECEIVED;
     }
 
     @Override
+    public byte[] getMessageDelimiter() {
+        // We want to read until we see a newline character
+        // This matches the ESP32's "println()"
+        return new byte[]{'\n'};
+    }
+
+    @Override
+    public boolean delimiterIndicatesEndOfMessage() {
+        return true;
+    }
+
+    // --- This method is now called when a full message (ending in '\n') arrives ---
+
+    @Override
     public void serialEvent(SerialPortEvent event) {
-        logger.info("Got serial event!");
+        if (event.getEventType() == SerialPort.LISTENING_EVENT_DATA_RECEIVED) {
 
-        if (event.getEventType() != SerialPort.LISTENING_EVENT_DATA_AVAILABLE) {
-            return; // Ignore other event types
-        }
+            // Get the complete message data
+            byte[] messageData = event.getReceivedData();
 
-        // Read the available data
-        byte[] readBuffer = new byte[commPort.bytesAvailable()];
-        int numRead = commPort.readBytes(readBuffer, readBuffer.length);
+            // Convert to a string and trim whitespace (like the \n)
+            String message = new String(messageData, StandardCharsets.UTF_8).trim();
 
-        if (numRead > 0) {
-            // Convert the bytes to a String, trimming any whitespace (like newlines)
-            String message = new String(readBuffer, StandardCharsets.UTF_8).trim();
             logger.info("Read from serial: {}", message);
-
-            // Send the message to the WebSocket topic "/topic/serial"
-            // The web client will be subscribed to this topic
             messagingTemplate.convertAndSend("/topic/serial", message);
         }
     }
