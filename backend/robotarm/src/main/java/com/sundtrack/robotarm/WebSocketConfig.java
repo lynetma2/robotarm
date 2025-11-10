@@ -19,7 +19,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         // We don't have messages coming *from* clients to the server
         // in this example, but if we did, they would be prefixed with "/app".
-        // config.setApplicationDestinationPrefixes("/app");
+        config.setApplicationDestinationPrefixes("/app");
     }
 
     @Override

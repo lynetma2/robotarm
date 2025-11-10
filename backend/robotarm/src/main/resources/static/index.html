@@ -5,7 +5,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; }
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 20px; }
         #messages {
             width: 500px;
             height: 300px;
@@ -14,25 +14,62 @@
             padding: 10px;
             overflow-y: scroll;
             margin-top: 10px;
+            margin-bottom: 10px;
         }
         .msg {
             padding: 5px;
             border-bottom: 1px solid #eee;
+        }
+        .msg-out {
+            color: #007bff; /* Blue for outgoing */
+        }
+        .msg-in {
+            color: #333; /* Black for incoming */
+        }
+        #send-form {
+            display: flex;
+            width: 510px;
+        }
+        #command-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px 0 0 4px;
+        }
+        #send-button {
+            padding: 8px 12px;
+            background: #007bff;
+            color: white;
+            border: 1px solid #007bff;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+        }
+        #send-button:hover {
+            background: #0056b3;
         }
     </style>
 </head>
 <body>
 <h2>ESP32 Serial Monitor</h2>
 <div id="status">Connecting...</div>
+
 <div id="messages"></div>
+
+<form id="send-form">
+    <input type="text" id="command-input" placeholder="Type command (e.g., G1 X100)"/>
+    <button type="submit" id="send-button">Send</button>
+</form>
 
 <script>
     let stompClient = null;
     const messagesDiv = document.getElementById('messages');
     const statusDiv = document.getElementById('status');
+    const sendForm = document.getElementById('send-form');
+    const commandInput = document.getElementById('command-input');
 
     function connect() {
-        // Create a new SockJS connection to our endpoint
+        // Create a new SockJS connection to the endpoint from your config
+        // --- Corrected this line ---
         var socket = new SockJS('/serial-websocket');
 
         // Create a STOMP client over the SockJS connection
@@ -45,8 +82,7 @@
             console.log('Connected: ' + frame);
 
             // Subscribe to the "/topic/serial" topic
-            // All messages from the server on this topic will be
-            // routed to the 'onMessageReceived' function.
+            // for INCOMING messages from the serial port
             stompClient.subscribe('/topic/serial', onMessageReceived);
         }, onError);
     }
@@ -60,15 +96,56 @@
     }
 
     function onMessageReceived(payload) {
-        // Parse the message body (which is a string from our ESP32)
         var message = payload.body;
 
-        // Create a new div for the message and add it to the top
+        // Log incoming message to the console
+        console.log("<< RECEIVED: " + message);
+
+        // Add the message to the monitor div
+        addMessageToMonitor(message, 'msg-in');
+    }
+
+    // --- NEW FUNCTION ---
+    function sendSerialCommand(event) {
+        // Prevent the form from doing a default browser submission
+        event.preventDefault();
+
+        const command = commandInput.value;
+        if (stompClient && stompClient.connected && command.trim().length > 0) {
+
+            // Log outgoing command to the console
+            console.log(">> SENDING: " + command);
+
+            // Send the command to the "/app/serial/write" destination
+            // This is handled by your @MessageMapping
+            stompClient.send("/app/serial/write", {}, command);
+
+            // Add our own sent message to the monitor
+            addMessageToMonitor(command, 'msg-out');
+
+            // Clear the input field
+            commandInput.value = '';
+        } else {
+            console.warn("Cannot send. STOMP client not connected or message empty.");
+        }
+    }
+
+    // --- NEW HELPER FUNCTION ---
+    // Adds a message to the monitor div with a specific style
+    function addMessageToMonitor(text, cssClass) {
         var msgElement = document.createElement('div');
-        msgElement.classList.add('msg');
-        msgElement.textContent = message;
+        msgElement.classList.add('msg', cssClass); // Add 'msg' and the specific class
+
+        // Add a prefix to distinguish in/out
+        const prefix = (cssClass === 'msg-out' ? '>> ' : '<< ');
+        msgElement.textContent = prefix + text;
+
         messagesDiv.prepend(msgElement);
     }
+
+    // --- NEW EVENT LISTENER ---
+    // Listen for the form 'submit' event (click or 'Enter' key)
+    sendForm.addEventListener('submit', sendSerialCommand);
 
     // Start the connection
     connect();

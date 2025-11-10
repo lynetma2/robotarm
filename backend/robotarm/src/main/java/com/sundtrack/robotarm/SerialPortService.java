@@ -49,6 +49,25 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
         }
     }
 
+    /**
+     * Writes data to the serial port.
+     * @param data The string to send. A newline character will be added.
+     */
+    public void writeToSerial(String data) {
+        if (commPort == null || !commPort.isOpen()) {
+            logger.warn("Attempted to write to serial, but port [{}] is not open.",
+                    (commPort != null ? commPort.getSystemPortName() : "null"));
+            throw new IllegalStateException("Serial port is not open or available.");
+        }
+
+        // Add the newline delimiter, since your device is listening for it
+        String dataToSend = data + "\n";
+        byte[] bytesToSend = dataToSend.getBytes(StandardCharsets.UTF_8);
+
+        logger.info(">> Writing to serial: {}", data);
+        commPort.writeBytes(bytesToSend, bytesToSend.length);
+    }
+
     // --- NEW METHODS FOR SerialPortMessageListener ---
 
     @Override
