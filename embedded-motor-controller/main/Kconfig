@@ -1,0 +1,23 @@
+menu "TMC2209 Configuration"
+
+    config TMC_UART_PORT
+        int "TMC2209 UART Port"
+        default 1
+        range 0 2
+        help
+            UART port number (e.g., UART_NUM_1).
+
+    config TMC_UART_PIN
+        int "TMC2209 UART Pin (TX/RX)"
+        default 35
+        range 0 39
+        help
+            The single GPIO pin used for half-duplex UART communication.
+
+    config TMC_BAUD_RATE
+        int "TMC2209 UART Baud Rate"
+        default 115200
+        help
+            Baud rate for TMC2209 communication. Check your driver's default.
+
+endmenu
