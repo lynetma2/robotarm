@@ -1,30 +1,54 @@
-# This file tells the ESP-IDF build system how to compile the TMC-API
+# ==============================
+# ESP-IDF Component for TMC-API
+# ==============================
 
-# Find all the .c source files in the library's 'tmc' directory
-# (Use GLOB_RECURSE, not GLOB_RECURSIVE)
-file(GLOB_RECURSE LIB_SRCS "TMC-API/tmc/*.c")
+# === Step 1: Define which ICs you want to include ===
+# (Add or remove ICs here as needed)
+set(USED_TMC_ICS
+        # MAX22200
+        TMC2209
+        # TMC4671
+)
 
-# The library's config files (like TMC_default_Config.h)
-# include IC headers with paths like "TMC2209.h".
-# This means we must add all the IC-specific directories
-# to the include path.
-# This finds all subdirectories under 'tmc/ic'
+# === Step 2: Collect source files ===
+
+# Start with an empty source list
+set(LIB_SRCS "")
+
+# Add helper .c files automatically
+file(GLOB HELPER_SRCS "TMC-API/tmc/helpers/*.c")
+list(APPEND LIB_SRCS ${HELPER_SRCS})
+
+# Add selected IC driver sources
+foreach(ic ${USED_TMC_ICS})
+    list(APPEND LIB_SRCS "TMC-API/tmc/ic/${ic}/${ic}.c")
+endforeach()
+
+# === Step 3: Include directories ===
+
+# Gather all IC subdirectories (for includes)
 file(GLOB IC_DIRS "TMC-API/tmc/ic/*")
 
-# Create a list of include paths
-set(LIB_INCLUDE_DIRS "." "TMC-API/tmc/helpers")
+# Core include directories
+set(LIB_INCLUDE_DIRS
+        "."                     # local dir
+        "TMC-API"               # for includes like <tmc/ic/...>
+        "TMC-API/tmc/helpers"   # helper headers
+)
+
+# Add all IC subdirs (so each IC header path works)
 foreach(IC_DIR ${IC_DIRS})
     if(IS_DIRECTORY "${IC_DIR}")
         list(APPEND LIB_INCLUDE_DIRS "${IC_DIR}")
     endif()
 endforeach()
 
-# Register this directory as a component
+# === Step 4: Register the component with ESP-IDF ===
 idf_component_register(
-        # Compile the source files we found
-        SRCS "${LIB_SRCS}"
-
-        # Add the root directory ('.') AND all the IC-specific
-        # subdirectories (e.g., "tmc/ic/TMC2209") to the include path.
+        SRCS ${LIB_SRCS}
         INCLUDE_DIRS ${LIB_INCLUDE_DIRS}
 )
+
+# === Optional: Print info for debugging ===
+message(STATUS "TMC-API component configured with ICs: ${USED_TMC_ICS}")
+message(STATUS "Included helper sources: ${HELPER_SRCS}")

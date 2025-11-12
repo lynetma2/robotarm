@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -20,7 +21,7 @@ extern "C" {
      * @param reg    The TMC register address
      * @param value  The 32-bit value to write
      */
-    void tmc_write(uint8_t slave, uint8_t reg, uint32_t value);
+    bool tmc_write(uint8_t slave, uint8_t reg, uint32_t value);
 
     /**
      * @brief Read a 32-bit register value from a TMC driver over UART (half-duplex)
