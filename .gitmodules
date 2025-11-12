@@ -1,0 +1,3 @@
+[submodule "embedded-motor-controller/components/tmc/TMC-API"]
+	path = embedded-motor-controller/components/tmc/TMC-API
+	url = https://github.com/analogdevicesinc/TMC-API.git
