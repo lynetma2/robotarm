@@ -20,16 +20,32 @@
 
 // --- Configuration ---
 #define UART_PORT_NUM       UART_NUM_2     // UART port to use
-#define UART_TX_PIN         GPIO_NUM_16    // ESP32-S3 TX pin
-#define UART_RX_PIN         GPIO_NUM_17    // ESP32-S3 RX pin
+#define UART_TX_PIN         8    // ESP32-S3 TX pin
+#define UART_RX_PIN         7    // ESP32-S3 RX pin
 #define UART_BAUD_RATE      115200         // Baud rate for TMC2209
 #define MOTOR_ID            0              // Motor ID and UART Address (0-3)
 
 #define UART_BUFFER_SIZE    (1024)
-#define READ_TIMEOUT_MS     10             // Timeout for UART reads
+#define READ_TIMEOUT_MS     100             // Timeout for UART reads
 #define TASK_STACK_SIZE     (4096)
 
 static const char *TAG = "TMC2209";
+
+void reverse_byte_array(uint8_t *array, size_t len) {
+    if (!array || len == 0) {
+        return;
+    }
+    size_t start = 0;
+    size_t end = len - 1;
+    uint8_t temp;
+    while (start < end) {
+        temp = array[start];
+        array[start] = array[end];
+        array[end] = temp;
+        start++;
+        end--;
+    }
+}
 
 // ====================================================================
 // Hardware Abstraction Layer (HAL)
@@ -40,7 +56,6 @@ static const char *TAG = "TMC2209";
 // These functions are called by the TMC2209.c file.
 // ====================================================================
 
-extern "C" {
 
 /**
  * @brief Returns the UART node address for the given motor.
@@ -66,13 +81,19 @@ uint8_t tmc2209_getNodeAddress(uint16_t icID)
  * @param rx_len Number of bytes to receive (expected response length).
  * @return true on success, false on failure.
  */
-bool tmc2209_readWriteUART(uint16_t icID, uint8_t *data, uint8_t tx_len, uint8_t rx_len)
+bool tmc2209_readWriteUART(uint16_t icID, uint8_t *data, size_t tx_len, size_t rx_len)
 {
     // This HAL function is specific to the TMC2209 UART driver
     // It uses a single buffer for TX and RX.
 
     // 1. Flush any old data from the RX buffer
     uart_flush_input(UART_PORT_NUM);
+    ESP_LOGW(TAG, "DEBUG: Trying to write %zu bytes:", tx_len);
+    ESP_LOG_BUFFER_HEX(TAG, data, tx_len);
+    //reverse_byte_array(data, tx_len);
+    //ESP_LOGW(TAG, "After reverse: Writing %zu bytes:", tx_len);
+    //ESP_LOG_BUFFER_HEX(TAG, data, tx_len);
+
 
     // 2. Write the datagram
     int bytes_written = uart_write_bytes(UART_PORT_NUM, (const char *)data, tx_len);
@@ -89,10 +110,11 @@ bool tmc2209_readWriteUART(uint16_t icID, uint8_t *data, uint8_t tx_len, uint8_t
     }
 
     // 4. If a response is expected, read it back into the *same* buffer
+    uint8_t buffer[8];
     if (rx_len > 0)
     {
         // Read the expected number of bytes.
-        int bytes_read = uart_read_bytes(UART_PORT_NUM, data, rx_len, pdMS_TO_TICKS(READ_TIMEOUT_MS));
+        int bytes_read = uart_read_bytes(UART_PORT_NUM, &data[0], (UART_BUFFER_SIZE - 1), pdMS_TO_TICKS(READ_TIMEOUT_MS));
 
         if (bytes_read == 0) {
             ESP_LOGW(TAG, "HAL Warning: UART Read Timeout! No data received.");
@@ -103,10 +125,12 @@ bool tmc2209_readWriteUART(uint16_t icID, uint8_t *data, uint8_t tx_len, uint8_t
         }
     }
 
+    ESP_LOGW(TAG, "After read: reading %zu bytes:", rx_len);
+    ESP_LOG_BUFFER_HEX(TAG, data, rx_len);
+
     return true;
 }
 
-} // extern "C"
 
 // ====================================================================
 // Main Application
@@ -143,50 +167,12 @@ void tmc_task(void *pvParameters) {
     ESP_LOGI(TAG, "TMC Task Started. Waiting 1s for motor power...");
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    ESP_LOGI(TAG, "Attempting to read GCONF...");
-
-    // --- Test 1: Read a register ---
-    int32_t gconf_value = 0;
-
-    // Call the library function to read the GCONF register
-    // This call (tmc2209_read) is defined in TMC_API.c
-    // It will internally call tmc2209_readRegister (in TMC2209.c)
-    // which then calls our HAL function tmc2209_readWriteUART.
-    tmc2209_read(MOTOR_ID, TMC2209_GCONF, &gconf_value);
-
-    ESP_LOGI(TAG, "GCONF register value: 0x%08lX", gconf_value);
-
-    if (gconf_value == 0) {
-        ESP_LOGW(TAG, "Warning: Read 0x0. Check wiring and motor power.");
-        ESP_LOGW(TAG, "The TMC2209 MUST have motor power (VM) applied to respond.");
-    } else {
-        ESP_LOGI(TAG, "Successfully read GCONF. Communication is working!");
-    }
-
-    // --- Test 2: Write a register ---
-    // Let's enable 'internal_rsense' (bit 0 of GCONF)
-    // This is just an example write to test the write function.
-    int32_t new_gconf = gconf_value | 0x01; // Set bit 0
-
-    ESP_LOGI(TAG, "Writing new GCONF value: 0x%08lX", new_gconf);
-    // This call will eventually use our HAL function
-    tmc2209_write(MOTOR_ID, TMC2209_GCONF, new_gconf);
-
-    // Give the write time to process
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    // --- Test 3: Read back the value to confirm ---
-    int32_t readback_gconf = 0;
-    tmc2209_read(MOTOR_ID, TMC2209_GCONF, &readback_gconf);
-    ESP_LOGI(TAG, "Read back GCONF value: 0x%08lX", readback_gconf);
-
-    if (readback_gconf == new_gconf) {
-        ESP_LOGI(TAG, "Success! Readback matches written value.");
-    } else {
-        ESP_LOGE(TAG, "Error: Readback value does not match written value.");
-    }
-
-    ESP_LOGI(TAG, "Test complete. Task will now idle.");
+    tmc2209_writeRegister(MOTOR_ID, TMC2209_GCONF, 0x00000040);
+    tmc2209_writeRegister(MOTOR_ID, TMC2209_IHOLD_IRUN, 0x00071703);
+    tmc2209_writeRegister(MOTOR_ID, TMC2209_TPOWERDOWN, 0x00000014);
+    tmc2209_writeRegister(MOTOR_ID, TMC2209_CHOPCONF, 0x10000053);
+    tmc2209_writeRegister(MOTOR_ID, TMC2209_PWMCONF, 0xC10D0024);
+    tmc2209_writeRegister(MOTOR_ID, TMC2209_VACTUAL, 0);
 
     while (1) {
         vTaskDelay(portMAX_DELAY); // Idle the task
