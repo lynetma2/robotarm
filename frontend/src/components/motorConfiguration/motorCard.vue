@@ -1,39 +1,53 @@
 <script setup lang="ts">
-import {ref} from "vue";
-import { Button } from "@/components/ui/button"
+import { ref } from 'vue'
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from '@/components/ui/card'
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@/components/ui/tabs"
-import Tmc2209settings from "@/components/motorConfiguration/tmc2209settings.vue";
+} from '@/components/ui/tabs'
 
-const modelValue = ref([50])
+// Import both of your child components
+import MotorCurrent from '@/components/motorConfiguration/motorCurrent.vue'
+import MotorStatus from '@/components/motorConfiguration/motorStatus.vue'
+
+const id = ref(0)
 </script>
 
 <template>
-  <Card class="w-[350px]">
+  <Card class="w-[600px]">
     <CardHeader>
-      <CardTitle>Motor Configuration</CardTitle>
-      <CardDescription>This changes the motor with id = 0</CardDescription>
+      <CardTitle>Motor {{ id }}</CardTitle>
+      <CardDescription>
+        View real-time status or change settings for motor with id = {{ id }}
+      </CardDescription>
     </CardHeader>
     <CardContent>
-     <tmc2209settings/>
+      <Tabs default-value="status" class="w-full">
+        <TabsList class="grid w-full grid-cols-2">
+          <TabsTrigger value="status">
+            📊 Real-time Status
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            ⚙️ Settings
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="status">
+          <MotorStatus :motor-id="id" />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <MotorCurrent />
+        </TabsContent>
+      </Tabs>
     </CardContent>
   </Card>
 </template>
-
-<style scoped>
-
-</style>
