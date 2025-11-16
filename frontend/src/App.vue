@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import "./style.css"
 import MotorCard from "@/components/motorConfiguration/motorCard.vue";
 import ConnectionStatus from "@/components/connectionStatus/connectionStatus.vue";
+import MovementManager from "@/components/movementSequenceManager/movementManager.vue";
 
 // --- In your real app, these values would come from ---
 // --- your WebSocket and Serial connection logic. ---
@@ -19,6 +20,7 @@ const serialConnected = ref(true)
     />
 
     <MotorCard />
+    <MovementManager />
 
     <div class="mt-8 space-x-2 border-t pt-4">
       <h3 class="font-semibold">Demo Controls</h3>
