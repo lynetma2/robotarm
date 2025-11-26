@@ -2,40 +2,64 @@
 import { ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import "./style.css"
+
+// Components
 import MotorCard from "@/components/motorConfiguration/motorCard.vue";
 import ConnectionStatus from "@/components/connectionStatus/connectionStatus.vue";
 import WaypointManager from "@/components/waypointManager/waypointManager.vue";
+// Import the new biggest box component
+import SimulationView from "@/components/simulationView/simulationView.vue";
 
-// --- In your real app, these values would come from ---
-// --- your WebSocket and Serial connection logic. ---
 const wsConnected = ref(true)
 const serialConnected = ref(true)
 </script>
 
 <template>
-  <div class="min-h-screen w-full p-10">
-    <ConnectionStatus
+  <div class="min-h-screen w-full bg-background p-6">
+
+    <div class="mb-6">
+      <ConnectionStatus
         :is-ws-connected="wsConnected"
         :is-serial-connected="serialConnected"
-    />
+      />
+    </div>
 
-    <MotorCard />
-    <WaypointManager />
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-140px)]">
 
-    <div class="mt-8 space-x-2 border-t pt-4">
-      <h3 class="font-semibold">Demo Controls</h3>
-      <Button
-          variant="outline"
-          @click="wsConnected = !wsConnected"
-      >
-        Toggle WebSocket
-      </Button>
-      <Button
-          variant="outline"
-          @click="serialConnected = !serialConnected"
-      >
-        Toggle Serial
-      </Button>
+      <div class="lg:col-span-8 h-full">
+        <SimulationView />
+      </div>
+
+      <div class="lg:col-span-4 flex flex-col gap-6 h-full overflow-y-auto pr-1">
+        <div class="flex-grow">
+          <WaypointManager />
+        </div>
+
+        <div>
+          <MotorCard />
+        </div>
+
+        <Card class="p-4 border-dashed">
+          <h3 class="font-semibold text-sm mb-3">Dev Controls</h3>
+          <div class="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              @click="wsConnected = !wsConnected"
+            >
+              Toggle WS
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              @click="serialConnected = !serialConnected"
+            >
+              Toggle Serial
+            </Button>
+          </div>
+        </Card>
+      </div>
+
     </div>
   </div>
 </template>
