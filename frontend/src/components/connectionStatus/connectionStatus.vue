@@ -6,12 +6,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
-import { Wifi, Usb, CheckCircle2, XCircle } from 'lucide-vue-next'
+import { Wifi, Usb, CheckCircle2, XCircle, Gamepad2 } from 'lucide-vue-next'
 
 // These props will receive the live status from your app
 const props = defineProps<{
   isWsConnected: boolean
   isSerialConnected: boolean
+  isControllerConnected: boolean
 }>()
 
 // A computed property to quickly know if everything is OK
@@ -65,6 +66,18 @@ const isAllGood = computed(() => props.isWsConnected && props.isSerialConnected)
               </div>
               <CheckCircle2
                 v-if="isSerialConnected"
+                class="h-5 w-5 text-green-500"
+              />
+              <XCircle v-else class="h-5 w-5 text-red-500" />
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <Gamepad2 class="h-4 w-4 text-muted-foreground" />
+                <span>Controller</span>
+              </div>
+              <CheckCircle2
+                v-if="isControllerConnected"
                 class="h-5 w-5 text-green-500"
               />
               <XCircle v-else class="h-5 w-5 text-red-500" />
