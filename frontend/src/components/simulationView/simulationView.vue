@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useStomp } from '@/composable/useStomp'
 
 // --- Props (for future connection to your real data) ---
 const props = defineProps<{
@@ -27,6 +28,19 @@ let renderer: THREE.WebGLRenderer
 let controls: OrbitControls
 let animationId: number
 let resizeObserver: ResizeObserver
+
+// --- STOMP Subscription ---
+const { subscribe } = useStomp()
+
+onMounted(() => {
+  // Subscribe to real-time coordinate updates from the backend
+  const unsubscribe = subscribe('/topic/coordinates', (payload) => {
+    console.log('Received coordinates:', payload)
+    // Here you would update the 'coordinates' ref with the new data
+    // e.g., coordinates.value = payload.axes;
+  })
+  onUnmounted(unsubscribe) // Clean up subscription
+})
 
 // --- Initialization ---
 const initThree = () => {

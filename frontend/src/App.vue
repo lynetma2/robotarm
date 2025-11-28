@@ -13,12 +13,13 @@ import JoggingCard from "@/components/jogging/joggingCard.vue"; // Import new ca
 
 // Composables
 import { useGamepad } from '@/composable/useGamepad';
+import { useStomp } from '@/composable/useStomp';
 
-const wsConnected = ref(true)
 const serialConnected = ref(true)
 
 // Use the gamepad hook here to pass status to the header
 const { isConnected: isControllerConnected } = useGamepad()
+const { isConnected: isWsConnected } = useStomp() // Use our new STOMP composable
 </script>
 
 <template>
@@ -26,9 +27,9 @@ const { isConnected: isControllerConnected } = useGamepad()
 
     <div class="mb-6">
       <ConnectionStatus
-        :is-ws-connected="wsConnected"
         :is-serial-connected="serialConnected"
         :is-controller-connected="isControllerConnected"
+        :is-ws-connected="isWsConnected"
       />
     </div>
 
@@ -51,7 +52,7 @@ const { isConnected: isControllerConnected } = useGamepad()
         <Card class="p-4 border-dashed bg-muted/30">
           <h3 class="font-semibold text-xs mb-3 text-muted-foreground uppercase">Dev Controls</h3>
           <div class="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" @click="wsConnected = !wsConnected">
+            <Button size="sm" variant="outline" @click="console.log('This button is now for display only.')">
               Toggle WS
             </Button>
             <Button size="sm" variant="outline" @click="serialConnected = !serialConnected">

@@ -68,7 +68,7 @@ const handleDeleteSequence = (id: number) => {
 </script>
 
 <template>
-  <Card class="w-[600px]">
+  <Card class="flex flex-col bg-card">
 
     <CardHeader class="flex flex-row items-center space-y-0 gap-4">
       <Button

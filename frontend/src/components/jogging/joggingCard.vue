@@ -4,9 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ChevronRight, ChevronLeft, Gamepad2 } from 'lucide-vue-next'
 import { useGamepad } from '@/composable/useGamepad'
+import { useStomp } from '@/composable/useStomp'
 
 // --- Gamepad Hook ---
 const { isConnected, buttons } = useGamepad()
+
+// --- STOMP Hook ---
+const { publish } = useStomp()
 
 // --- State ---
 const joints = [
@@ -39,9 +43,16 @@ watch(buttons, (newButtons) => {
   isJoggingPos.value = newButtons[7]
   isJoggingNeg.value = newButtons[6]
 
-  // NOTE: In a real app, you would emit a WebSocket event here based on this state
-  if (isJoggingPos.value) console.log(`Jogging J${joints[selectedJointIndex.value].id} POS`)
-  if (isJoggingNeg.value) console.log(`Jogging J${joints[selectedJointIndex.value].id} NEG`)
+  // Send jog commands via STOMP
+  const jointId = joints[selectedJointIndex.value].id
+  if (isJoggingPos.value) {
+    publish('/app/jog', { jointId, direction: 1, speed: jogSpeed.value / 100 })
+    console.log(`Jogging J${jointId} POS`)
+  }
+  if (isJoggingNeg.value) {
+    publish('/app/jog', { jointId, direction: -1, speed: jogSpeed.value / 100 })
+    console.log(`Jogging J${jointId} NEG`)
+  }
 })
 
 // Debounce selection change so it doesn't fly through the list

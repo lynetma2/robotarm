@@ -17,6 +17,7 @@
     "lint": "run-s lint:*"
   },
   "dependencies": {
+    "@stomp/stompjs": "^7.2.1",
     "@tailwindcss/vite": "^4.1.17",
     "@types/three": "^0.181.0",
     "@vueuse/core": "^14.0.0",
