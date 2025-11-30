@@ -22,7 +22,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // This is the endpoint that clients will connect to.
         // withSockJS() is a fallback for browsers that don't support WebSockets.
-        registry.addEndpoint("/ws-robot-arm").setAllowedOriginPatterns("*").withSockJS();
-        registry.addEndpoint("/serial-websocket").withSockJS();
+        registry.addEndpoint("/ws-robot-arm").setAllowedOriginPatterns("http://localhost:5173");
+                //.withSockJS();
+        //registry.addEndpoint("/serial-websocket").withSockJS();
     }
 }

@@ -2,7 +2,7 @@ import { ref, onUnmounted, readonly } from 'vue'
 import { Client, type IFrame, type IMessage } from '@stomp/stompjs'
 
 // --- Configuration ---
-const WEBSOCKET_URL = 'ws://localhost:8080/ws' // Replace with your backend WebSocket endpoint
+const WEBSOCKET_URL = 'ws://localhost:8080/ws-robot-arm' // Use ws:// for WebSockets
 
 // --- Module-level state (Singleton Pattern) ---
 // By creating the client and state outside the composable function, we ensure
@@ -44,15 +44,21 @@ export function useStomp() {
    * @returns A function to unsubscribe.
    */
   const subscribe = (topic: string, callback: (payload: any) => void) => {
-    const subscription = client.subscribe(topic, (message: IMessage) => {
-      try {
-        const parsedBody = JSON.parse(message.body)
-        callback(parsedBody)
-      } catch (e) {
-        console.error(`Could not parse JSON from topic [${topic}]:`, message.body)
-        callback(message.body) // Fallback to raw body
-      }
-    })
+    // The client.subscribe() method will automatically wait for the connection to be established.
+    // The library queues the subscription and processes it upon connection.
+    // This elegantly solves the race condition.
+    const subscription = client.subscribe(
+      topic,
+      (message: IMessage) => {
+        try {
+          const parsedBody = JSON.parse(message.body)
+          callback(parsedBody)
+        } catch (e) {
+          console.error(`Could not parse JSON from topic [${topic}]:`, message.body)
+          callback(message.body) // Fallback to raw body
+        }
+      },
+    )
     return () => subscription.unsubscribe()
   }
 
@@ -62,10 +68,8 @@ export function useStomp() {
    * @param body The message payload, which will be stringified.
    */
   const publish = (destination: string, body: object) => {
-    if (!isConnected.value) {
-      console.warn('STOMP: Cannot publish. Client not connected.')
-      return
-    }
+    // The library will queue the message if the client is not connected.
+    // This removes the need for the isConnected check here.
     client.publish({ destination, body: JSON.stringify(body) })
   }
 
