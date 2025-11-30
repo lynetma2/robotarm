@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,8 +50,9 @@ public class SequenceService {
         SettingsDto settingsDto = new SettingsDto(entity.getSettings().isLoopSequence());
 
         return new SequenceDto(
-                entity.getId(),
-                entity.getName(),
+                Optional.ofNullable(entity.getId()),
+                entity.getTitle(),
+                entity.getDescription(),
                 entity.getLastModified(),
                 stepDtos,
                 settingsDto
@@ -59,12 +61,13 @@ public class SequenceService {
 
     private StepDto toStepDto(Step step) {
         PoseDto poseDto = new PoseDto(step.getPose().getX(), step.getPose().getY(), step.getPose().getZ(), step.getPose().getRoll(), step.getPose().getPitch(), step.getPose().getYaw());
-        return new StepDto(step.getId(), step.getName(), poseDto, step.getInterpolation(), step.getSpeed());
+        return new StepDto(Optional.ofNullable(step.getId()), step.getName(), poseDto, step.getInterpolation(), step.getSpeed());
     }
 
     private Sequence toEntity(SequenceDto dto) {
         Sequence entity = new Sequence();
-        entity.setName(dto.name());
+        entity.setTitle(dto.title());
+        entity.setDescription(dto.description());
 
         Settings settings = new Settings();
         settings.setLoopSequence(dto.settings().loopSequence());
