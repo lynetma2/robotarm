@@ -32,15 +32,12 @@ let resizeObserver: ResizeObserver
 // --- STOMP Subscription ---
 const { subscribe } = useStomp()
 
-onMounted(() => {
-  // Subscribe to real-time coordinate updates from the backend
-  const unsubscribe = subscribe('/topic/coordinates', (payload) => {
-    console.log('Received coordinates:', payload)
-    // Here you would update the 'coordinates' ref with the new data
-    // e.g., coordinates.value = payload.axes;
-  })
-  onUnmounted(unsubscribe) // Clean up subscription
+// This one line handles everything safely:
+subscribe('/topic/coordinates', (payload) => {
+  console.log('Received:', payload)
+  coordinates.value = payload
 })
+
 
 // --- Initialization ---
 const initThree = () => {
@@ -121,6 +118,12 @@ const initThree = () => {
 // --- Lifecycle Hooks ---
 onMounted(() => {
   initThree()
+  // // Subscribe to real-time coordinate updates from the backend
+  // stompUnsubscribe = subscribe('/topic/coordinates', (payload) => {
+  //   console.log('Received coordinates:', payload)
+  //   // Here you would update the 'coordinates' ref with the new data
+  //   // e.g., coordinates.value = payload.axes;
+  // })
 })
 
 onUnmounted(() => {

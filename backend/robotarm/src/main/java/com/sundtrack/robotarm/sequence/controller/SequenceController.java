@@ -26,17 +26,17 @@ public class SequenceController {
      * Handles a request to fetch all sequences.
      * A client sends a message to "/app/sequences.getAll" and the response is sent to "/topic/sequences".
      */
-    @MessageMapping("/sequences.getAll")
+    @MessageMapping("/sequences/get")
     @SendTo("/topic/sequences")
     public java.util.List<SequenceDto> getAllSequences() {
         logger.info("Received request for all sequences");
         return sequenceService.getAllSequences();
     }
 
-    @MessageMapping("/sequences.create")
+    @MessageMapping("/sequences/create")
     @SendTo("/topic/sequences")
     public java.util.List<SequenceDto> createSequence(@Payload SequenceDto sequenceDto) {
-        logger.info("Received request to create sequence: {}", sequenceDto.name());
+        logger.info("Received request to create sequence: {}", sequenceDto.title());
         sequenceService.createSequence(sequenceDto);
         // After creating, return the new complete list to all subscribers
         return sequenceService.getAllSequences();

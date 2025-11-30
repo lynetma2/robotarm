@@ -9,10 +9,10 @@ export interface Pose {
 }
 
 export interface Step {
-  id: string;
+  id?: number;
   name:string;
   pose: Pose;
-  interpolation: 'linear' | 'joint';
+  interpolation: 'LINEAR' | 'JOINT';
   speed: number;
 }
 
@@ -22,8 +22,9 @@ export interface Settings {
 
 // Represents a sequence that might be new (no ID)
 export interface Sequence {
-  id: string | null;
-  name: string;
+  id?: number;
+  title: string;
+  description: string;
   lastModified: string;
   steps: Step[];
   settings: Settings;

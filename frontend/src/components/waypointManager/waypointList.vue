@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Play, Pencil } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
-import type { Sequence } from './types'
+import type {Sequence} from "@/types/robotarm.ts";
 
 // Props: Receive data from parent
 defineProps<{

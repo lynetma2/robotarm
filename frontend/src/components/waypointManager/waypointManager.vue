@@ -2,37 +2,34 @@
 import { ref } from 'vue'
 import { ArrowLeft, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Import Sub-components and Types
 import WaypointList from './waypointList.vue'
 import WaypointEditor from './waypointEditor.vue'
-import type { Sequence } from './types'
+import { useStomp } from '@/composable/useStomp'
+import type {Sequence} from "@/types/robotarm.ts";
 
 // --- State ---
 const selectedSequence = ref<Sequence | null>(null)
+const sequences = ref<Sequence[]>([])
 
-// Mock Data
-const sequences = ref<Sequence[]>([
-  {
-    id: 1,
-    title: 'Home Position',
-    description: 'Reset arm to zero coordinates',
-    waypoints: [{ id: 101, x: 0, y: 0, speed: 50 }]
-  },
-  {
-    id: 2,
-    title: 'Pickup Zone A',
-    description: 'Move to conveyor belt input',
-    waypoints: [{ id: 201, x: 50, y: 120, speed: 200 }]
-  },
-])
+// --- WebSocket Integration ---
+const { publish, subscribe } = useStomp()
+
+// 1. Subscription
+// Now safe to call at the top level.
+// - It automatically waits for the connection.
+// - It automatically registers cleanup when this component unmounts.
+subscribe('/topic/sequences', (data: Sequence[]) => {
+  sequences.value = data
+})
+
+// 2. Initial Data Fetch
+// Now safe to call immediately.
+// - If connected, it sends.
+// - If disconnected, it waits and sends as soon as the connection opens.
+publish('/app/sequences/get', {})
 
 // --- Handlers ---
 
@@ -48,22 +45,47 @@ const handleBack = () => {
 
 // Create New Sequence
 const handleAdd = () => {
-  const newSequence: Sequence = {
-    id: Date.now(),
+  const newSequencePayload = {
     title: 'New Sequence',
     description: 'Enter description here...',
-    waypoints: []
+    steps: [{
+      name: "New Step",
+      pose: {
+        x: 0,
+        y: 0,
+        z: 0,
+        roll: 0,
+        pitch: 0,
+        yaw: 0
+      },
+      interpolation: 'LINEAR',
+      speed: 100
+    }],
+    settings: {
+      loop: false
+    },
   }
-  sequences.value.push(newSequence)
-  selectedSequence.value = newSequence // Auto-open the new sequence
+  // Publish an event to the backend to create a new sequence.
+  publish('/app/sequences/create', newSequencePayload)
 }
 
 // Delete Sequence (Triggered by Editor)
 const handleDeleteSequence = (id: number) => {
-  // Filter out the deleted sequence
-  sequences.value = sequences.value.filter(s => s.id !== id)
+  publish('/app/sequences/delete', { id })
   // Close the editor
   selectedSequence.value = null
+}
+
+// Update Sequence (Triggered by Editor)
+const handleUpdateSequence = (updatedSequence: Sequence) => {
+  // Publish the entire updated sequence object to the backend.
+  publish('/app/sequences/update', updatedSequence)
+}
+
+// Play Sequence
+const handlePlaySequence = (id: number) => {
+  console.log('Playing sequence via WebSocket:', id)
+  publish('/app/sequences/play', { id })
 }
 </script>
 
@@ -103,13 +125,14 @@ const handleDeleteSequence = (id: number) => {
           v-if="selectedSequence"
           :sequence="selectedSequence"
           @delete-sequence="handleDeleteSequence"
+          @update-sequence="handleUpdateSequence"
         />
 
         <WaypointList
           v-else
           :sequences="sequences"
           @edit="handleEdit"
-          @play="(id) => console.log('Playing', id)"
+          @play="handlePlaySequence"
         />
 
       </div>

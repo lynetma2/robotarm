@@ -10,7 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import type { Sequence } from './types'
+import type {Sequence} from "@/types/robotarm.ts";
 
 const props = defineProps<{
   sequence: Sequence
@@ -24,18 +24,23 @@ const emit = defineEmits<{
 
 const addWaypoint = () => {
   // Create a unique ID (using random for demo purposes)
-  const newId = Date.now() + Math.floor(Math.random() * 1000)
-
-  props.sequence.waypoints.push({
-    id: newId,
-    x: 0,
-    y: 0,
-    speed: 100
+  props.sequence.steps.push({
+    name: "New Step",
+    pose: {
+      x: 0,
+      y: 0,
+      z: 0,
+      roll: 0,
+      pitch: 0,
+      yaw: 0
+    },
+    speed: 100,
+    interpolation: 'LINEAR'
   })
 }
 
 const removeWaypoint = (index: number) => {
-  props.sequence.waypoints.splice(index, 1)
+  props.sequence.steps.splice(index, 1)
 }
 
 const saveList = () => {
@@ -59,7 +64,7 @@ const saveList = () => {
     </div>
 
     <draggable
-      v-model="props.sequence.waypoints"
+      v-model="props.sequence.steps"
       item-key="id"
       handle=".drag-handle"
       animation="200"
@@ -78,7 +83,7 @@ const saveList = () => {
                 <AccordionTrigger class="flex-1 py-0 hover:no-underline">
                   <span class="text-sm font-medium">Step {{ index + 1 }} <span class="text-muted-foreground font-normal ml-2">(ID: {{ point.id }})</span></span>
                   <span class="ml-auto mr-4 text-xs text-muted-foreground">
-                    X: {{ point.x }} / Y: {{ point.y }}
+                    X: {{ point.pose.x }} / Y: {{ point.pose.y }}
                   </span>
                 </AccordionTrigger>
               </div>
@@ -87,11 +92,11 @@ const saveList = () => {
                 <div class="grid grid-cols-3 gap-4 pt-4">
                   <div class="grid gap-2">
                     <Label>Position X</Label>
-                    <Input type="number" v-model="point.x" />
+                    <Input type="number" v-model="point.pose.x" />
                   </div>
                   <div class="grid gap-2">
                     <Label>Position Y</Label>
-                    <Input type="number" v-model="point.y" />
+                    <Input type="number" v-model="point.pose.y" />
                   </div>
                   <div class="grid gap-2">
                     <Label>Speed</Label>
