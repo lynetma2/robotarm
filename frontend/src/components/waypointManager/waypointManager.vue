@@ -79,7 +79,9 @@ const handleDeleteSequence = (id: number) => {
 // Update Sequence (Triggered by Editor)
 const handleUpdateSequence = (updatedSequence: Sequence) => {
   // Publish the entire updated sequence object to the backend.
-  publish('/app/sequences/update', updatedSequence)
+  publish('/app/sequences/' + updatedSequence.id + '/update', updatedSequence)
+  // Exit the editor and return to the list view as user feedback
+  selectedSequence.value = null
 }
 
 // Play Sequence

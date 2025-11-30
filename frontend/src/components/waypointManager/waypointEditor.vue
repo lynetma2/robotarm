@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import draggable from 'vuedraggable'
-import { GripVertical, Trash2, Plus } from 'lucide-vue-next'
+import { GripVertical, Trash2, Plus, Save } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'delete-sequence', id: number): void
+  (e: 'update-sequence', sequence: Sequence): void
 }>()
 
 // --- Actions ---
@@ -45,6 +46,7 @@ const removeWaypoint = (index: number) => {
 
 const saveList = () => {
   console.log("Save was pressed!")
+  emit('update-sequence', props.sequence)
 }
 
 </script>
