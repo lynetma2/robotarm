@@ -12,6 +12,8 @@ public class MovementConfig {
      */
     private double maxSpeed = 200.0;
 
+    private double maxSpeedFrequency = 10000;
+
     /**
      * The time in milliseconds between sending interpolated micro-steps.
      * A smaller value results in smoother movement but higher serial traffic.
@@ -29,4 +31,12 @@ public class MovementConfig {
     public long getInterpolationStepMillis() { return interpolationStepMillis; }
 
     public void setInterpolationStepMillis(long interpolationStepMillis) { this.interpolationStepMillis = interpolationStepMillis; }
+
+    public double getMaxSpeedFrequency() {
+        return maxSpeedFrequency;
+    }
+
+    public void setMaxSpeedFrequency(double maxSpeedFrequency) {
+        this.maxSpeedFrequency = maxSpeedFrequency;
+    }
 }

@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sundtrack.robotarm.movement.dto.JogEventDto;
 import com.sundtrack.robotarm.movement.config.MovementConfig;
+import com.sundtrack.robotarm.movement.dto.DriveSegmentDTO;
 import com.sundtrack.robotarm.movement.dto.StepCommandDto;
-import com.sundtrack.robotarm.sequence.dto.PoseDto;
 import com.sundtrack.robotarm.sequence.dto.SequenceDto;
 import com.sundtrack.robotarm.sequence.dto.StepDto;
 import com.sundtrack.robotarm.sequence.service.SequenceService;
@@ -25,17 +25,17 @@ public class MotorControlService {
     private final SerialPortService serialPortService;
     private final SequenceService sequenceService;
     private final ObjectMapper objectMapper;
-    private final MovementConfig movementConfig;
+    private final MathService mathService;
 
     // Use AtomicBoolean for thread-safe state management across different requests
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
 
     @Autowired
-    public MotorControlService(SerialPortService serialPortService, SequenceService sequenceService, ObjectMapper objectMapper, MovementConfig movementConfig) {
+    public MotorControlService(SerialPortService serialPortService, SequenceService sequenceService, ObjectMapper objectMapper, MathService mathService, MovementConfig movementConfig) {
         this.serialPortService = serialPortService;
         this.sequenceService = sequenceService;
         this.objectMapper = objectMapper;
-        this.movementConfig = movementConfig;
+        this.mathService = mathService;
     }
 
     /**
@@ -84,8 +84,21 @@ public class MotorControlService {
                     StepDto startStep = sequence.steps().get(i);
                     StepDto endStep = sequence.steps().get(i + 1);
 
-                    logger.info("Moving from '{}' to '{}'", startStep.name(), endStep.name());
-                    performInterpolatedMove(startStep.pose(), endStep.pose(), endStep.speed());
+                    // 1. Delegate all complex calculations to the MathService
+                    DriveSegmentDTO[] segments = mathService.calculateDriveSegments(startStep.pose(), endStep.pose(), endStep.speed());
+
+                    // 2. Create the command DTO with the calculated segments
+                    var command = new StepCommandDto();
+                    command.setData(new StepCommandDto.StepData(endStep.id(), endStep.name(), segments));
+
+                    // 3. Serialize and send the command
+                    try {
+                        String commandJson = objectMapper.writeValueAsString(command);
+                        serialPortService.writeToSerial(commandJson);
+                        waitForMoveCompletion(1000); // Placeholder for hardware feedback
+                    } catch (JsonProcessingException e) {
+                        logger.error("Failed to serialize StepCommandDto for step '{}'", endStep.name(), e);
+                    }
                 }
             } catch (Exception e) {
                 logger.error("Error during sequence playback for ID {}: {}", sequenceId, e.getMessage());
@@ -106,99 +119,6 @@ public class MotorControlService {
             // Optionally, send a hardware-specific stop command (e.g., M0 or feed hold)
             // serialPortService.writeToSerial("M0");
         }
-    }
-
-    /**
-     * Performs a move from a start to an end pose using linear interpolation.
-     * It breaks the move into small micro-steps and sends them sequentially.
-     */
-    private void performInterpolatedMove(PoseDto startPose, PoseDto endPose, double requestedSpeed) {
-        // 1. Calculate total distance for each axis
-        double dx = endPose.x() - startPose.x();
-        double dy = endPose.y() - startPose.y();
-        double dz = endPose.z() - startPose.z();
-        // ... add dRoll, dPitch, dYaw if you want to interpolate orientation
-
-        double totalDistance = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-        // 2. Apply speed wrapper/scaling
-        // The speed from the step is a percentage (0-100) of the configured max speed.
-        double actualSpeed = movementConfig.getMaxSpeed() * (Math.min(100.0, Math.max(0.0, requestedSpeed)) / 100.0);
-
-        if (actualSpeed <= 0) {
-            logger.warn("Speed is zero or negative, skipping move.");
-            return;
-        }
-
-        // 3. Calculate move duration and number of steps
-        double durationSeconds = totalDistance / actualSpeed;
-        int numSteps = (int) Math.ceil((durationSeconds * 1000) / movementConfig.getInterpolationStepMillis());
-
-        if (numSteps <= 0) return;
-
-        // 4. Loop and send interpolated micro-steps
-        for (int i = 1; i <= numSteps; i++) {
-            if (!isPlaying.get()) break;
-
-            double fraction = (double) i / numSteps;
-
-            // Calculate the interpolated pose for this micro-step
-            double[] interpolatedPoseArray = {
-                    startPose.x() + dx * fraction,
-                    startPose.y() + dy * fraction,
-                    startPose.z() + dz * fraction,
-                    // ... interpolate roll, pitch, yaw here
-                    startPose.roll(), // For now, keep orientation constant
-                    startPose.pitch(),
-                    startPose.yaw()
-            };
-
-            // Create and send the command
-            StepCommandDto microStepCommand = createStepCommand("Interpolated Step", interpolatedPoseArray, actualSpeed);
-            try {
-                String commandJson = objectMapper.writeValueAsString(microStepCommand);
-                serialPortService.writeToSerial(commandJson);
-            } catch (JsonProcessingException e) {
-                logger.error("Failed to serialize interpolated step command", e);
-            }
-
-            waitForMoveCompletion(movementConfig.getInterpolationStepMillis());
-        }
-    }
-
-    /**
-     * Converts a StepDto from a sequence into a StepCommandDto ready for serialization.
-     */
-    private com.sundtrack.robotarm.movement.dto.StepCommandDto convertToStepCommand(StepDto stepDto) {
-        var command = new com.sundtrack.robotarm.movement.dto.StepCommandDto();
-        var poseDto = stepDto.pose();
-        double[] poseArray = {poseDto.x(), poseDto.y(), poseDto.z(), poseDto.roll(), poseDto.pitch(), poseDto.yaw()};
-
-        var stepData = new com.sundtrack.robotarm.movement.dto.StepCommandDto.StepData(
-                stepDto.id(),
-                stepDto.name(),
-                poseArray,
-                stepDto.interpolation(),
-                stepDto.speed()
-        );
-        command.setData(stepData);
-        return command;
-    }
-
-    /**
-     * Helper to create a StepCommandDto for interpolated micro-steps.
-     */
-    private StepCommandDto createStepCommand(String name, double[] poseArray, double speed) {
-        var command = new StepCommandDto();
-        var stepData = new StepCommandDto.StepData(
-                java.util.Optional.empty(), // No persistent ID for micro-steps
-                name,
-                poseArray,
-                com.sundtrack.robotarm.sequence.model.Interpolation.LINEAR, // Micro-steps are always linear
-                speed
-        );
-        command.setData(stepData);
-        return command;
     }
 
     private void waitForMoveCompletion(long millis) {

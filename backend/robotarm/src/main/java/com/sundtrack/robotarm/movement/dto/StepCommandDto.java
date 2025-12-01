@@ -13,9 +13,7 @@ public class StepCommandDto extends BaseCommandDto {
     public record StepData(
             Optional<Long> id,
             String name,
-            double[] pose, // e.g., [x, y, z, roll, pitch, yaw]
-            Interpolation interpolation,
-            double speed
+            DriveSegmentDTO[] segments // e.g., [x, y, z, roll, pitch, yaw]
     ) {}
 
     public StepData getData() { return data; }
