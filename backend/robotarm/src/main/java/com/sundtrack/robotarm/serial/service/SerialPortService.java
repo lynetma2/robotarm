@@ -1,4 +1,4 @@
-package com.sundtrack.robotarm;
+package com.sundtrack.robotarm.serial.service;
 
 import com.fazecast.jSerialComm.SerialPort;
 import com.fazecast.jSerialComm.SerialPortEvent;
@@ -101,7 +101,7 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
             String message = new String(messageData, StandardCharsets.UTF_8).trim();
 
             logger.info("Read from serial: {}", message);
-            messagingTemplate.convertAndSend("/topic/serial", message);
+            messagingTemplate.convertAndSend("/topic/serial/logs", message);
         }
     }
 }

@@ -51,4 +51,13 @@ public class SequenceController {
         // After updating, return the new complete list to all subscribers
         return sequenceService.getAllSequences();
     }
+
+    @MessageMapping("/sequences/{id}/delete")
+    @SendTo("/topic/sequences")
+    public java.util.List<SequenceDto> deleteSequence(@DestinationVariable Long id) {
+        logger.info("Received request to delete sequence with id: {}", id);
+        sequenceService.deleteSequence(id);
+        // After deleting, return the new complete list to all subscribers
+        return sequenceService.getAllSequences();
+    }
 }

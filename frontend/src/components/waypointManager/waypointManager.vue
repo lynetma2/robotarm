@@ -71,7 +71,8 @@ const handleAdd = () => {
 
 // Delete Sequence (Triggered by Editor)
 const handleDeleteSequence = (id: number) => {
-  publish('/app/sequences/delete', { id })
+  console.log("Tried to delete the sequence with id:" + id)
+  publish('/app/sequences/' + id + '/delete',{})
   // Close the editor
   selectedSequence.value = null
 }

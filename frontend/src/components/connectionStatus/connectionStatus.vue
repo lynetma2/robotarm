@@ -20,7 +20,7 @@ const isAllGood = computed(() => props.isWsConnected && props.isSerialConnected)
 </script>
 
 <template>
-  <div class="fixed top-4 right-4 z-9999">
+  <div>
     <Popover>
       <PopoverTrigger as-child>
         <Button

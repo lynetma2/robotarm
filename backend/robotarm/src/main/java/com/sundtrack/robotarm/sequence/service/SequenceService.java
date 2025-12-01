@@ -70,6 +70,15 @@ public class SequenceService {
         return toDto(existingSequence);
     }
 
+    @Transactional
+    public void deleteSequence(Long id) {
+        if (!sequenceRepository.existsById(id)) {
+            // Or just log a warning and return. Throwing is better for API clarity.
+            throw new RuntimeException("Cannot delete. Sequence not found with id: " + id);
+        }
+        sequenceRepository.deleteById(id);
+    }
+
     // --- Helper Mapper Methods ---
 
     private SequenceDto toDto(Sequence entity) {

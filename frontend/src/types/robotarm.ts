@@ -46,3 +46,7 @@ export interface JogEvent {
   direction: DirectionEnum;
   speed: number;
 }
+
+export interface command {
+  command: "jog" |
+}

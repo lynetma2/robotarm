@@ -46,11 +46,11 @@ watch(buttons, (newButtons) => {
   // Send jog commands via STOMP
   const jointId = joints[selectedJointIndex.value].id
   if (isJoggingPos.value) {
-    publish('/app/jog', { jointId, direction: 1, speed: jogSpeed.value / 100 })
+    publish('/app/jog', { motorId: jointId, direction: 1, speed: jogSpeed.value / 100 })
     console.log(`Jogging J${jointId} POS`)
   }
   if (isJoggingNeg.value) {
-    publish('/app/jog', { jointId, direction: -1, speed: jogSpeed.value / 100 })
+    publish('/app/jog', { motorId: jointId, direction: -1, speed: jogSpeed.value / 100 })
     console.log(`Jogging J${jointId} NEG`)
   }
 })
