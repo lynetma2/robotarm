@@ -43,12 +43,8 @@ public class MotorControlService {
      * NOTE: This is a placeholder for your specific G-code or command protocol.
      */
     public void handleJog(JogEventDto jogEvent) {
-        // Example: "JOG M<motorId> D<direction> S<speed>"
-        String command = String.format("JOG M%d D%d S%.2f",
-                jogEvent.motorId(),
-                jogEvent.direction().getValue(),
-                jogEvent.speed()
-        );
+        // Delegate command creation to MathService for consistency
+        String command = mathService.createJogCommand(jogEvent);
         serialPortService.writeToSerial(command);
     }
 

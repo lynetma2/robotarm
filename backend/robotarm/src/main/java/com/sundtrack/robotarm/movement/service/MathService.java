@@ -3,6 +3,7 @@ package com.sundtrack.robotarm.movement.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sundtrack.robotarm.movement.config.MovementConfig;
 import com.sundtrack.robotarm.movement.dto.DriveSegmentDTO;
+import com.sundtrack.robotarm.movement.dto.JogEventDto;
 import com.sundtrack.robotarm.sequence.dto.PoseDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +48,7 @@ public class MathService {
             double delta = endMotorPositions[i] - startMotorPositions[i];
             directions[i] = delta >= 0 ? 1 : -1;
             // This is where you'd convert units (e.g., mm or degrees) to motor steps
-            totalSteps[i] = Math.round(Math.abs(delta) * 100); // Example: 1mm = 100 steps
+            totalSteps[i] = Math.round(Math.abs(delta) * 1600); // Example: 1 degree = 1600 steps
         }
 
         // --- 3. Motion Profiling (Trapezoidal Speed Profile) ---
@@ -81,5 +82,13 @@ public class MathService {
             }
         }
         return segments;
+    }
+
+    public String createJogCommand(JogEventDto jogEvent) {
+        String command = String.format("JOG M%d D%d S%.2f",
+                jogEvent.motorId(),
+                jogEvent.direction().getValue(),
+                jogEvent.speed()
+        );
     }
 }
