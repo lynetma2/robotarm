@@ -13,6 +13,18 @@
 #include "driver/uart.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include <motor_control.h>
+#include <serial_comms.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/rmt_tx.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "freertos/queue.h"
+#include "cJSON.h"
+#include "string.h"
+
+static const char *TAG = "MOTOR_CONTROL";
 
 // --- TMC-API Includes ---
 // Wrap in extern "C" to prevent C++/C linkage errors
@@ -29,7 +41,7 @@
 #define READ_TIMEOUT_MS     100             // Timeout for UART reads
 #define TASK_STACK_SIZE     (4096)
 
-static const char *TAG = "TMC2209";
+//static const char *TAG = "TMC2209";
 
 void reverse_byte_array(uint8_t *array, size_t len) {
     if (!array || len == 0) {
@@ -184,8 +196,49 @@ void tmc_task(void *pvParameters) {
  */
 void app_main(void) {
     // Initialize the UART for the TMC driver
-    tmc_uart_init();
+    //tmc_uart_init();
 
     // Create the task that will communicate with the TMC
-    xTaskCreate(tmc_task, "tmc_task", TASK_STACK_SIZE, NULL, 5, NULL);
+    //xTaskCreate(tmc_task, "tmc_task", TASK_STACK_SIZE, NULL, 5, NULL);
+    ESP_LOGI(TAG, "Starting Motor Control Application");
+
+    // --- 1. Create the command queue ---
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        motorQueues[i] = xQueueCreate(10, sizeof(MotorCommand)); // Queue can hold 10 commands
+        if (motorQueues[i] == NULL) {
+            ESP_LOGE(TAG, "Failed to create command queue for motor %d", i);
+            return;
+        }
+    }
+
+    // --- 2. Configure Motor 0 ---
+    motors[0].id = 0;
+    motors[0].en_gpio = 4;     // e.g., GPIO 4
+    motors[0].dir_gpio = 2;   // e.g., GPIO 2
+    motors[0].step_gpio = 1; // e.g., GPIO 1
+    motor_init(&motors[0]);
+
+    // --- 3. Configure Motor 1 (Scalability!) ---
+    // Example: Assign different GPIOs for the second motor
+    // Make sure these are valid GPIOs on your board
+    motors[1].id = 1;
+    motors[1].en_gpio = 5;
+    motors[1].dir_gpio = 38;
+    motors[1].step_gpio = 39;
+    motor_init(&motors[1]);
+
+    // Add more motor inits here...
+
+    // --- 4. Create Tasks ---
+    xTaskCreate(serial_task, "serial_task", UART_TASK_STACK_SIZE, NULL, 5, NULL);
+
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        char task_name[20];
+        sprintf(task_name, "motor_task_%d", i);
+
+        // Pass the motor ID (i) as the task parameter
+        xTaskCreate(motor_task, task_name, MOTOR_TASK_STACK_SIZE, (void *)i, 10, NULL);
+    }
+
+    ESP_LOGI(TAG, "Initialization complete. Tasks started.");
 }
