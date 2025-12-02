@@ -88,7 +88,7 @@ const handleUpdateSequence = (updatedSequence: Sequence) => {
 // Play Sequence
 const handlePlaySequence = (id: number) => {
   console.log('Playing sequence via WebSocket:', id)
-  publish('/app/sequences/play', { id })
+  publish('/app/sequences/' + id + '/play', {})
 }
 </script>
 

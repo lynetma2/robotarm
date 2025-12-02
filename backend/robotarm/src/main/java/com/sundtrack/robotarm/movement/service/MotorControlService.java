@@ -90,6 +90,7 @@ public class MotorControlService {
                     // 3. Serialize and send the command
                     try {
                         String commandJson = objectMapper.writeValueAsString(command);
+                        logger.info("Sending command: {}", commandJson);
                         serialPortService.writeToSerial(commandJson);
                         waitForMoveCompletion(1000); // Placeholder for hardware feedback
                     } catch (JsonProcessingException e) {

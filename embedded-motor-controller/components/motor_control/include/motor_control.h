@@ -18,7 +18,7 @@
 #define STEP_MOTOR_RESOLUTION_HZ 1000000 // 1MHz resolution
 
 #define NUM_MOTORS 2
-#define MOTOR_TASK_STACK_SIZE (2048)
+#define MOTOR_TASK_STACK_SIZE (4096)
 
 // --- Enums and Structs for Motor Configuration ---
 /**

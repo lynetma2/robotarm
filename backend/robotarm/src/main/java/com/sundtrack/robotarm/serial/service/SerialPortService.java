@@ -28,7 +28,7 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
 
         // *** SET YOUR PORT HERE ***
         // (e.g., "COM3" on Windows, "/dev/ttyUSB0" on Linux)
-        commPort = SerialPort.getCommPort("COM4");
+        commPort = SerialPort.getCommPort("COM6");
 
         // Set port parameters
         commPort.setBaudRate(115200);

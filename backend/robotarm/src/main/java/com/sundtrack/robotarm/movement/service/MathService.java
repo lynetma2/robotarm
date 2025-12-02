@@ -48,7 +48,7 @@ public class MathService {
             double delta = endMotorPositions[i] - startMotorPositions[i];
             directions[i] = delta >= 0 ? 1 : -1;
             // This is where you'd convert units (e.g., mm or degrees) to motor steps
-            totalSteps[i] = Math.round(Math.abs(delta) * 1600); // Example: 1 degree = 1600 steps
+            totalSteps[i] = Math.round(Math.abs(delta) * 40/9); // Example: 1 degree = 1600/360 steps
         }
 
         // --- 3. Motion Profiling (Trapezoidal Speed Profile) ---
@@ -90,5 +90,7 @@ public class MathService {
                 jogEvent.direction().getValue(),
                 jogEvent.speed()
         );
+        logger.info("Generated jog command: {}", command);
+        return command;
     }
 }
