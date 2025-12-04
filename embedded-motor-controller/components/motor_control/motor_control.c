@@ -30,6 +30,8 @@ void motor_task(void *pvParameters)
         if (xQueueReceive(queue, &cmd, portMAX_DELAY)) {
             ESP_LOGI(TAG, "[Motor %d] Received command: %u steps",
                      motor_id, cmd.accel_steps + cmd.uniform_steps + cmd.decel_steps);
+            ESP_LOGI(TAG, "[Motor %d] steps Accel: %u, Uniform: %u, Decel: %u]", motor_id, cmd.accel_steps, cmd.uniform_steps, cmd.decel_steps);
+            ESP_LOGI(TAG, "[Motor %d] start freq: %u, uniform freq: %u, end freq: %u", motor_id, cmd.start_freq_hz, cmd.uniform_freq_hz, cmd.end_freq_hz);
 
             // --- 1. Delete old encoders (if they exist) ---
             if (motor->accel_encoder) {

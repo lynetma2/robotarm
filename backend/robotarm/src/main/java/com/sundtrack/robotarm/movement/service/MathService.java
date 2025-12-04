@@ -59,6 +59,8 @@ public class MathService {
             long decelSteps = (long) (totalSteps[i] * 0.2);
             long uniformSteps = totalSteps[i] - accelSteps - decelSteps;
 
+            int requestedTopSpeed = (int) (movementConfig.getMaxSpeedFrequency() * (requestedSpeed / 100.0));
+
             // --- 4. Speed/Frequency Calculation ---
             // This is a simplified frequency calculation. A real implementation would be more complex.
             int startFreq = 500;
