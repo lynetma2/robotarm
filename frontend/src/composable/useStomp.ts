@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted, getCurrentInstance, readonly } from 'vue'
+import { ref, onUnmounted, getCurrentInstance, readonly } from 'vue'
 import { Client, type IFrame, type IMessage } from '@stomp/stompjs'
 
 // --- Configuration ---
@@ -37,90 +37,44 @@ export function useStomp() {
 
   /**
    * Safe Subscribe Wrapper
-   * - Waits for connection before subscribing (prevents crashes).
+   * - The STOMP client automatically waits for connection before subscribing.
    * - Automatically cleans up when the component unmounts.
+   * @param topic The topic to subscribe to.
+   * @param callback The function to execute with the message payload.
+   * @returns A function to manually unsubscribe if needed.
    */
   const subscribe = (topic: string, callback: (payload: any) => void) => {
-    let stompSubscription: any = null
-
-    // 1. Define the actual subscription logic
-    const doSubscribe = () => {
-      // Only subscribe if connected and not already subscribed
-      if (isConnected.value && !stompSubscription) {
-        try {
-          stompSubscription = client.subscribe(topic, (message: IMessage) => {
-            try {
-              const parsedBody = JSON.parse(message.body)
-              callback(parsedBody)
-            } catch (e) {
-              console.error(`Could not parse JSON from topic [${topic}]:`, message.body)
-              callback(message.body)
-            }
-          })
-        } catch (err) {
-          console.error(`Failed to subscribe to ${topic}`, err)
-        }
+    // The client will queue this subscription until it is connected.
+    const stompSubscription = client.subscribe(topic, (message: IMessage) => {
+      try {
+        const parsedBody = JSON.parse(message.body)
+        callback(parsedBody)
+      } catch (e) {
+        console.error(`Could not parse JSON from topic [${topic}]:`, message.body)
+        // Fallback to raw body if JSON parsing fails
+        callback(message.body)
       }
-    }
+    })
 
-    // 2. Watch connection state
-    // 'immediate: true' ensures we try immediately if already connected
-    const stopWatcher = watch(isConnected, (connected) => {
-      if (connected) {
-        doSubscribe()
-      } else {
-        // Connection lost: StompJS handles internal cleanup,
-        // but we clear our reference so we can resubscribe on reconnect
-        stompSubscription = null
-      }
-    }, { immediate: true })
-
-    // 3. Define Cleanup Function
-    const cleanup = () => {
-      stopWatcher() // Stop watching isConnected
-      if (stompSubscription) {
-        try {
-          stompSubscription.unsubscribe()
-        } catch (e) { /* ignore */ }
-        stompSubscription = null
-      }
-    }
-
-    // 4. AUTO-MAGIC: If called inside a component, auto-register cleanup
+    // If called inside a component's setup, automatically unsubscribe on unmount.
     if (getCurrentInstance()) {
-      onUnmounted(cleanup)
+      onUnmounted(() => {
+        stompSubscription.unsubscribe()
+      })
     }
 
-    // Return cleanup in case manual unsub is needed
-    return cleanup
+    // Return the unsubscribe function for manual cleanup if needed.
+    return () => stompSubscription.unsubscribe()
   }
 
   /**
    * Safe Publish Wrapper
-   * - Sends immediately if connected.
-   * - Queues the message if disconnected and sends it once connected.
+   * - The STOMP client automatically queues messages if not connected
+   *   and sends them upon connection.
    */
   const publish = (destination: string, body: object) => {
-    const doSend = () => {
-      try {
-        client.publish({ destination, body: JSON.stringify(body) })
-      } catch (err) {
-        console.error(`STOMP: Failed to publish to ${destination}`, err)
-      }
-    }
-
-    if (isConnected.value) {
-      doSend()
-    } else {
-      // If not connected, wait for connection
-      // This creates a one-time watcher that executes the publish and then destroys itself
-      const stopWatcher = watch(isConnected, (connected) => {
-        if (connected) {
-          doSend()
-          stopWatcher() // Unwatch immediately after sending to prevent duplicate sends
-        }
-      })
-    }
+    // This will be queued by the library if the client is not yet connected.
+    client.publish({ destination, body: JSON.stringify(body) })
   }
 
   return {

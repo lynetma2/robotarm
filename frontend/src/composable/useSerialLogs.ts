@@ -23,8 +23,11 @@ export function useSerialLogs() {
     const { subscribe } = useStomp()
 
     subscribe(LOG_TOPIC, (log: LogMessage) => {
-      // Add the new log to the end of the array
-      logs.value.push(log)
+      // By replacing the array instead of mutating it, we ensure Vue's
+      // reactivity system reliably detects the change when a component re-mounts.
+      logs.value = [...logs.value, log]
+      console.log("log recieved: ", log)
+
 
       // If we've exceeded the max number of logs, remove the oldest one
       if (logs.value.length > MAX_LOGS) {
