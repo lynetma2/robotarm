@@ -10,6 +10,7 @@
 #include "freertos/queue.h"
 #include "driver/rmt_tx.h"
 #include "driver/gpio.h"
+#include "driver/pulse_cnt.h"
 
 #define STEP_MOTOR_ENABLE_LEVEL  0 // DRV8825 is enabled on low level
 #define STEP_MOTOR_SPIN_DIR_CLOCKWISE 0
@@ -35,6 +36,10 @@ typedef struct
     rmt_encoder_handle_t accel_encoder;
     rmt_encoder_handle_t uniform_encoder;
     rmt_encoder_handle_t decel_encoder;
+
+    pcnt_unit_handle_t pcnt_unit;
+    pcnt_channel_handle_t pcnt_channel;
+    int64_t absolute_position;
 } MotorConfig;
 
 /**
@@ -52,6 +57,46 @@ typedef struct
     uint32_t uniform_freq_hz;
     uint32_t end_freq_hz;
 } MotorCommand;
+
+// --- Enums for Type Safety ---
+typedef enum {
+    MSG_TYPE_TELEMETRY,
+    MSG_TYPE_LOG
+} msg_type_t;
+
+typedef enum {
+    LOG_INFO,
+    LOG_WARN,
+    LOG_ERROR
+} log_level_t;
+
+// --- Payload Structures ---
+
+// Specific data for Logs
+typedef struct {
+    log_level_t level;
+    char *message;      // Dynamic string
+    int error_code;     // Optional, 0 if none
+} log_payload_t;
+
+// Specific data for Telemetry (Customize this to your needs)
+typedef struct {
+    int64_t motor_positions[NUM_MOTORS];
+    uint8_t num_motors;
+} telemetry_payload_t;
+
+// --- The "Smart" Wrapper Struct ---
+typedef struct {
+    int64_t timestamp;      // Auto-filled
+    const char *source;     // Static string (e.g., "TAG")
+    msg_type_t type;        // The "Tag" that tells us what the union holds
+
+    union {
+        log_payload_t log;
+        telemetry_payload_t telemetry;
+    } data;
+
+} telemetry_packet_t;
 
 // --- Global Shared Variables ---
 // These are defined in motor_control.c and declared extern here
@@ -77,5 +122,24 @@ void motor_init(MotorConfig *motor);
  * @param pvParameters The motor ID (as an integer cast to void*).
  */
 void motor_task(void *pvParameters);
+
+/**
+ * @brief FreeRTOS task for printing telemetry data.
+ *
+ * Looks at the pcnt counter for each motor and reports it.
+ *
+ * @param pvParameters unused in this.
+ */
+void telemetry_task(void *pvParameters);
+
+/**
+ * @brief Custom logging function to serialize log messages to JSON and print to UART.
+ *
+ * @param level The log level string (e.g., "INFO", "ERROR").
+ * @param tag The tag string for the log message.
+ * @param format The format string.
+ * @param ... The variable arguments list.
+ */
+void log_to_json(const char *level, const char *tag, const char *format, ...);
 
 #endif //EMBEDDED_TEST_MOTOR_CONTROL_H

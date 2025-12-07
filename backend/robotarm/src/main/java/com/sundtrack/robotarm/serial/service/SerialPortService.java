@@ -1,5 +1,11 @@
 package com.sundtrack.robotarm.serial.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sundtrack.robotarm.serial.dto.BasePayloadDto;
+import com.sundtrack.robotarm.serial.dto.IncomingMessageDto;
+import com.sundtrack.robotarm.serial.dto.LogPayloadDto;
+import com.sundtrack.robotarm.serial.dto.TelemetryPayloadDto;
+import com.sundtrack.robotarm.state.RobotStateService;
 import com.fazecast.jSerialComm.SerialPort;
 import com.fazecast.jSerialComm.SerialPortEvent;
 import com.fazecast.jSerialComm.SerialPortMessageListener;
@@ -20,6 +26,12 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private RobotStateService robotStateService;
+
     private SerialPort commPort;
 
     @Override
@@ -28,7 +40,7 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
 
         // *** SET YOUR PORT HERE ***
         // (e.g., "COM3" on Windows, "/dev/ttyUSB0" on Linux)
-        commPort = SerialPort.getCommPort("COM6");
+        commPort = SerialPort.getCommPort("COM4");
 
         // Set port parameters
         commPort.setBaudRate(115200);
@@ -100,8 +112,28 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
             // Convert to a string and trim whitespace (like the \n)
             String message = new String(messageData, StandardCharsets.UTF_8).trim();
 
-            logger.info("Read from serial: {}", message);
-            messagingTemplate.convertAndSend("/topic/serial/logs", message);
+            try {
+                IncomingMessageDto incomingMessage = objectMapper.readValue(message, IncomingMessageDto.class);
+                BasePayloadDto payload = incomingMessage.data();
+
+                if (payload instanceof TelemetryPayloadDto telemetry) {
+                    // If it's telemetry, update the robot's state
+                    robotStateService.updateMotorPositions(telemetry.motorPositions());
+                    // Optionally, broadcast the telemetry to a specific topic for UI display
+                    messagingTemplate.convertAndSend("/topic/serial/telemetry", telemetry);
+
+                } else if (payload instanceof LogPayloadDto log) {
+                    // If it's a log, forward it to the logs topic
+                    logger.info("Read LOG from serial: [{}] {}", log.level(), log.message());
+                    messagingTemplate.convertAndSend("/topic/serial/logs", log);
+                }
+                logger.info("Message recieved from serial: {}", message);
+
+            } catch (Exception e) {
+                logger.error("Failed to parse JSON from serial: '{}'", message, e);
+                // Send raw message to a debug topic if parsing fails
+                messagingTemplate.convertAndSend("/topic/serial/raw", message);
+            }
         }
     }
 }

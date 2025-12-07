@@ -81,7 +81,7 @@ public class MotorControlService {
                     StepDto endStep = sequence.steps().get(i + 1);
 
                     // 1. Delegate all complex calculations to the MathService
-                    DriveSegmentDTO[] segments = mathService.calculateDriveSegments(startStep.pose(), endStep.pose(), endStep.speed());
+                    DriveSegmentDTO[] segments = mathService.calculateDriveSegments(endStep.pose(), endStep.speed());
 
                     // 2. Create the command DTO with the calculated segments
                     var command = new StepCommandDto();
