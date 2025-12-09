@@ -100,7 +100,7 @@ bool tmc2209_readWriteUART(uint16_t icID, uint8_t *data, size_t tx_len, size_t r
 
     // 1. Flush any old data from the RX buffer
     uart_flush_input(UART_PORT_NUM);
-    ESP_LOGW(TAG, "DEBUG: Trying to write %zu bytes:", tx_len);
+    log_to_json("WARN", TAG, "DEBUG: Trying to write %zu bytes:", tx_len);
     ESP_LOG_BUFFER_HEX(TAG, data, tx_len);
     //reverse_byte_array(data, tx_len);
     //ESP_LOGW(TAG, "After reverse: Writing %zu bytes:", tx_len);
@@ -110,14 +110,14 @@ bool tmc2209_readWriteUART(uint16_t icID, uint8_t *data, size_t tx_len, size_t r
     // 2. Write the datagram
     int bytes_written = uart_write_bytes(UART_PORT_NUM, (const char *)data, tx_len);
     if (bytes_written != tx_len) {
-        ESP_LOGE(TAG, "HAL Error: Wrote %d bytes, expected %d", bytes_written, tx_len);
+        log_to_json("ERROR", TAG, "HAL Error: Wrote %d bytes, expected %d", bytes_written, tx_len);
         return false;
     }
 
     // 3. Wait for the write to complete
     esp_err_t err = uart_wait_tx_done(UART_PORT_NUM, pdMS_TO_TICKS(100));
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "HAL Error: uart_wait_tx_done failed (%s)", esp_err_to_name(err));
+        log_to_json("ERROR", TAG, "HAL Error: uart_wait_tx_done failed (%s)", esp_err_to_name(err));
         return false;
     }
 
@@ -129,15 +129,15 @@ bool tmc2209_readWriteUART(uint16_t icID, uint8_t *data, size_t tx_len, size_t r
         int bytes_read = uart_read_bytes(UART_PORT_NUM, &data[0], (UART_BUFFER_SIZE - 1), pdMS_TO_TICKS(READ_TIMEOUT_MS));
 
         if (bytes_read == 0) {
-            ESP_LOGW(TAG, "HAL Warning: UART Read Timeout! No data received.");
+            log_to_json("WARN", TAG, "HAL Warning: UART Read Timeout! No data received.");
             return false;
         } else if (bytes_read < rx_len) {
-            ESP_LOGW(TAG, "HAL Warning: Read %d bytes, expected %d", bytes_read, rx_len);
+            log_to_json("WARN", TAG, "HAL Warning: Read %d bytes, expected %d", bytes_read, rx_len);
             return false;
         }
     }
 
-    ESP_LOGW(TAG, "After read: reading %zu bytes:", rx_len);
+    log_to_json("WARN", TAG, "After read: reading %zu bytes:", rx_len);
     ESP_LOG_BUFFER_HEX(TAG, data, rx_len);
 
     return true;
@@ -161,12 +161,12 @@ void tmc_uart_init(void) {
         .source_clk = UART_SCLK_DEFAULT,
     };
 
-    ESP_LOGI(TAG, "Installing UART driver");
+    log_to_json("INFO", TAG, "Installing UART driver");
     // Install UART driver
     ESP_ERROR_CHECK(uart_driver_install(UART_PORT_NUM, UART_BUFFER_SIZE * 2, 0, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_param_config(UART_PORT_NUM, &uart_config));
 
-    ESP_LOGI(TAG, "Setting UART pins: TX=%d, RX=%d", UART_TX_PIN, UART_RX_PIN);
+    log_to_json("INFO", TAG, "Setting UART pins: TX=%d, RX=%d", UART_TX_PIN, UART_RX_PIN);
     // Set UART pins
     ESP_ERROR_CHECK(uart_set_pin(UART_PORT_NUM, UART_TX_PIN, UART_RX_PIN,
                                  UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
@@ -176,7 +176,7 @@ void tmc_uart_init(void) {
  * @brief Main task to interact with the TMC2209.
  */
 void tmc_task(void *pvParameters) {
-    ESP_LOGI(TAG, "TMC Task Started. Waiting 1s for motor power...");
+    log_to_json("INFO", TAG, "TMC Task Started. Waiting 1s for motor power...");
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     tmc2209_writeRegister(MOTOR_ID, TMC2209_GCONF, 0x00000040);
@@ -200,13 +200,13 @@ void app_main(void) {
 
     // Create the task that will communicate with the TMC
     //xTaskCreate(tmc_task, "tmc_task", TASK_STACK_SIZE, NULL, 5, NULL);
-    ESP_LOGI(TAG, "Starting Motor Control Application");
+    log_to_json("INFO", TAG, "Starting Motor Control Application");
 
     // --- 1. Create the command queue ---
     for (int i = 0; i < NUM_MOTORS; i++) {
         motorQueues[i] = xQueueCreate(10, sizeof(MotorCommand)); // Queue can hold 10 commands
         if (motorQueues[i] == NULL) {
-            ESP_LOGE(TAG, "Failed to create command queue for motor %d", i);
+            log_to_json("ERROR", TAG, "Failed to create command queue for motor %d", i);
             return;
         }
     }
@@ -216,6 +216,7 @@ void app_main(void) {
     motors[0].en_gpio = 4;     // e.g., GPIO 4
     motors[0].dir_gpio = 2;   // e.g., GPIO 2
     motors[0].step_gpio = 1; // e.g., GPIO 1
+    motors[0].absolute_position = 0;
     motor_init(&motors[0]);
 
     // --- 3. Configure Motor 1 (Scalability!) ---
@@ -225,6 +226,7 @@ void app_main(void) {
     motors[1].en_gpio = 5;
     motors[1].dir_gpio = 38;
     motors[1].step_gpio = 39;
+    motors[1].absolute_position = 0;
     motor_init(&motors[1]);
 
     // Add more motor inits here...
@@ -240,5 +242,7 @@ void app_main(void) {
         xTaskCreate(motor_task, task_name, MOTOR_TASK_STACK_SIZE, (void *)i, 10, NULL);
     }
 
-    ESP_LOGI(TAG, "Initialization complete. Tasks started.");
+    xTaskCreate(telemetry_task, "telemetry_task", UART_TASK_STACK_SIZE, NULL, 5, NULL);
+
+    log_to_json("INFO", TAG, "Initialization complete. Tasks started.");
 }
