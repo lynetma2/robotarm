@@ -37,10 +37,11 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
         // Initial connection attempt on startup
         connect();
     }
-    
+
 
     /**
      * Writes data to the serial port.
+     *
      * @param data The string to send. A newline character will be added.
      */
     public void writeToSerial(String data) {
@@ -67,7 +68,7 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
         // 1. Data has been received.
         // 2. The port has been disconnected (e.g., USB cable unplugged).
         return SerialPort.LISTENING_EVENT_DATA_RECEIVED |
-               SerialPort.LISTENING_EVENT_PORT_DISCONNECTED;
+                SerialPort.LISTENING_EVENT_PORT_DISCONNECTED;
     }
 
     @Override
@@ -99,78 +100,103 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
 
     /**
      * Handles an incoming message from the serial port.
+     *
      * @param event The event containing the received data.
      */
     private void handleDataReceived(SerialPortEvent event) {
-        // Get the complete message data, convert to a string, and trim whitespace.
+        // Get the complete message data
         byte[] messageData = event.getReceivedData();
+
+        // Convert to a string and trim whitespace (like the \n)
         String message = new String(messageData, StandardCharsets.UTF_8).trim();
 
-        logger.info("Read from serial: {}", message);
-        messagingTemplate.convertAndSend("/topic/serial/logs", message);
-    }
+        try {
+            IncomingMessageDto incomingMessage = objectMapper.readValue(message, IncomingMessageDto.class);
+            BasePayloadDto payload = incomingMessage.data();
 
-    /**
-     * Handles the event when the serial port is disconnected.
-     */
-    private void handlePortDisconnected() {
-        logger.warn("Serial port [{}] disconnected.", commPort.getSystemPortName());
-        closeAndScheduleReconnection();
-    }
+            if (payload instanceof TelemetryPayloadDto telemetry) {
+                // If it's telemetry, update the robot's state
+                robotStateService.updateMotorPositions(telemetry.motorPositions());
+                // Optionally, broadcast the telemetry to a specific topic for UI display
+                messagingTemplate.convertAndSend("/topic/serial/telemetry", telemetry);
 
-    /**
-     * Encapsulates the logic to find, configure, and open the serial port.
-     */
-    private void connect() {
-        if (commPort != null && commPort.isOpen()) {
-            logger.info("Connect call ignored, port is already open.");
-            return;
+            } else if (payload instanceof LogPayloadDto log) {
+                // If it's a log, forward it to the logs topic
+                logger.info("Read LOG from serial: [{}] {}", log.level(), log.message());
+                messagingTemplate.convertAndSend("/topic/serial/logs", log);
+            }
+            logger.info("Message recieved from serial: {}", message);
+
+        } catch (Exception e) {
+            logger.error("Failed to parse JSON from serial: '{}'", message, e);
+            // Send raw message to a debug topic if parsing fails
+            messagingTemplate.convertAndSend("/topic/serial/raw", message);
         }
 
-        // *** SET YOUR PORT HERE ***
-        commPort = SerialPort.getCommPort("COM6");
+    }
+}
 
-        // Set port parameters
-        commPort.setBaudRate(115200);
-        commPort.setNumDataBits(8);
-        commPort.setNumStopBits(1);
-        commPort.setParity(SerialPort.NO_PARITY);
+/**
+ * Handles the event when the serial port is disconnected.
+ */
+private void handlePortDisconnected() {
+    logger.warn("Serial port [{}] disconnected.", commPort.getSystemPortName());
+    closeAndScheduleReconnection();
+}
 
-        if (commPort.openPort()) {
-            logger.info("Successfully opened port: {}", commPort.getSystemPortName());
-            cancelReconnectionTask(); // Connection is successful, cancel the retry task
-            commPort.addDataListener(this);
-        } else {
-            logger.warn("Failed to open port: {}. Will retry automatically.", commPort.getSystemPortName());
-            scheduleReconnection(); // If the initial connection fails, start the retry task
-        }
+/**
+ * Encapsulates the logic to find, configure, and open the serial port.
+ */
+private void connect() {
+    if (commPort != null && commPort.isOpen()) {
+        logger.info("Connect call ignored, port is already open.");
+        return;
     }
 
-    private void closeAndScheduleReconnection() {
-        if (commPort != null && commPort.isOpen()) {
-            commPort.closePort();
-        }
-        scheduleReconnection();
-    }
+    // *** SET YOUR PORT HERE ***
+    commPort = SerialPort.getCommPort("COM6");
 
-    /**
-     * Schedules a recurring task to attempt reconnection if one isn't already running.
-     */
-    private synchronized void scheduleReconnection() {
-        if (reconnectionTask == null || reconnectionTask.isDone()) {
-            logger.info("Scheduling reconnection task to run every 5 seconds.");
-            // The task will run every 5 seconds until it is cancelled.
-            reconnectionTask = taskScheduler.scheduleAtFixedRate(this::connect, 5000);
-        }
-    }
+    // Set port parameters
+    commPort.setBaudRate(115200);
+    commPort.setNumDataBits(8);
+    commPort.setNumStopBits(1);
+    commPort.setParity(SerialPort.NO_PARITY);
 
-    /**
-     * Cancels the reconnection task if it is currently active.
-     */
-    private synchronized void cancelReconnectionTask() {
-        if (reconnectionTask != null && !reconnectionTask.isDone()) {
-            logger.info("Serial connection established. Cancelling reconnection task.");
-            reconnectionTask.cancel(false); // false: don't interrupt if already running
-        }
+    if (commPort.openPort()) {
+        logger.info("Successfully opened port: {}", commPort.getSystemPortName());
+        cancelReconnectionTask(); // Connection is successful, cancel the retry task
+        commPort.addDataListener(this);
+    } else {
+        logger.warn("Failed to open port: {}. Will retry automatically.", commPort.getSystemPortName());
+        scheduleReconnection(); // If the initial connection fails, start the retry task
     }
+}
+
+private void closeAndScheduleReconnection() {
+    if (commPort != null && commPort.isOpen()) {
+        commPort.closePort();
+    }
+    scheduleReconnection();
+}
+
+/**
+ * Schedules a recurring task to attempt reconnection if one isn't already running.
+ */
+private synchronized void scheduleReconnection() {
+    if (reconnectionTask == null || reconnectionTask.isDone()) {
+        logger.info("Scheduling reconnection task to run every 5 seconds.");
+        // The task will run every 5 seconds until it is cancelled.
+        reconnectionTask = taskScheduler.scheduleAtFixedRate(this::connect, 5000);
+    }
+}
+
+/**
+ * Cancels the reconnection task if it is currently active.
+ */
+private synchronized void cancelReconnectionTask() {
+    if (reconnectionTask != null && !reconnectionTask.isDone()) {
+        logger.info("Serial connection established. Cancelling reconnection task.");
+        reconnectionTask.cancel(false); // false: don't interrupt if already running
+    }
+}
 }
