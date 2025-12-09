@@ -30,6 +30,7 @@ function calculateRegisterValue(current_mA: number, r_sense: number): number {
     (current_Amps * (r_sense + INTERNAL_RESISTANCE) * VFS_FACTOR) - 1
 
   const roundedValue = Math.round(registerValue)
+  const test = "test"
   return Math.max(0, Math.min(31, roundedValue))
 }
 
