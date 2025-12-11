@@ -1,18 +1,24 @@
 package com.sundtrack.robotarm.serial.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper; // Import added
 import com.fazecast.jSerialComm.SerialPort;
 import com.fazecast.jSerialComm.SerialPortEvent;
 import com.fazecast.jSerialComm.SerialPortMessageListener;
+import com.sundtrack.robotarm.serial.dto.BasePayloadDto;
+import com.sundtrack.robotarm.serial.dto.IncomingMessageDto;
+import com.sundtrack.robotarm.serial.dto.LogPayloadDto;
+import com.sundtrack.robotarm.serial.dto.TelemetryPayloadDto;
+import com.sundtrack.robotarm.state.RobotStateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value; // Import added
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.scheduling.TaskScheduler;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.concurrent.ScheduledFuture;
 
 @Service
@@ -22,59 +28,56 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
 
     private final SimpMessagingTemplate messagingTemplate;
     private final TaskScheduler taskScheduler;
-    private ScheduledFuture<?> reconnectionTask;
 
+    // --- MISSING DEPENDENCIES ADDED HERE ---
+    private final ObjectMapper objectMapper;
+    private final RobotStateService robotStateService;
+
+    private ScheduledFuture<?> reconnectionTask;
     private SerialPort commPort;
 
+    // --- PORT CONFIG ADDED HERE ---
+    @Value("${serial.port.name:COM6}") // Defaults to COM6 if not found in properties
+    private String portName;
+
     @Autowired
-    public SerialPortService(SimpMessagingTemplate messagingTemplate, TaskScheduler taskScheduler) {
+    public SerialPortService(SimpMessagingTemplate messagingTemplate,
+                             TaskScheduler taskScheduler,
+                             ObjectMapper objectMapper,
+                             RobotStateService robotStateService) {
         this.messagingTemplate = messagingTemplate;
         this.taskScheduler = taskScheduler;
+        this.objectMapper = objectMapper;
+        this.robotStateService = robotStateService;
     }
 
     @Override
     public void run(String... args) throws Exception {
-        // Initial connection attempt on startup
         connect();
     }
 
-
-    /**
-     * Writes data to the serial port.
-     *
-     * @param data The string to send. A newline character will be added.
-     */
     public void writeToSerial(String data) {
         if (commPort == null || !commPort.isOpen()) {
-            String portName = (commPort != null ? commPort.getSystemPortName() : "not initialized");
-            logger.warn("Attempted to write to serial, but port [{}] is not open.", portName);
-            scheduleReconnection(); // Attempt to reconnect if we try to write while disconnected
+            String pName = (commPort != null ? commPort.getSystemPortName() : "not initialized");
+            logger.warn("Attempted to write to serial, but port [{}] is not open.", pName);
+            scheduleReconnection();
             throw new IllegalStateException("Serial port is not open or available.");
         }
-
-        // Add the newline delimiter, since your device is listening for it
         String dataToSend = data + "\n";
         byte[] bytesToSend = dataToSend.getBytes(StandardCharsets.UTF_8);
-
         logger.info(">> Writing to serial: {}", data);
         commPort.writeBytes(bytesToSend, bytesToSend.length);
     }
 
-    // --- NEW METHODS FOR SerialPortMessageListener ---
+    // --- LISTENER CONFIGURATION ---
 
     @Override
     public int getListeningEvents() {
-        // This tells the listener to fire for two events:
-        // 1. Data has been received.
-        // 2. The port has been disconnected (e.g., USB cable unplugged).
-        return SerialPort.LISTENING_EVENT_DATA_RECEIVED |
-                SerialPort.LISTENING_EVENT_PORT_DISCONNECTED;
+        return SerialPort.LISTENING_EVENT_DATA_RECEIVED | SerialPort.LISTENING_EVENT_PORT_DISCONNECTED;
     }
 
     @Override
     public byte[] getMessageDelimiter() {
-        // We want to read until we see a newline character
-        // This matches the ESP32's "println()"
         return new byte[]{'\n'};
     }
 
@@ -83,11 +86,8 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
         return true;
     }
 
-    // --- This method is now called when a full message (ending in '\n') arrives ---
-
     @Override
     public void serialEvent(SerialPortEvent event) {
-        // Dispatch the event to the appropriate handler method.
         switch (event.getEventType()) {
             case SerialPort.LISTENING_EVENT_DATA_RECEIVED:
                 handleDataReceived(event);
@@ -98,105 +98,84 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
         }
     }
 
-    /**
-     * Handles an incoming message from the serial port.
-     *
-     * @param event The event containing the received data.
-     */
     private void handleDataReceived(SerialPortEvent event) {
-        // Get the complete message data
         byte[] messageData = event.getReceivedData();
-
-        // Convert to a string and trim whitespace (like the \n)
         String message = new String(messageData, StandardCharsets.UTF_8).trim();
 
         try {
+            // ObjectMapper is now available
             IncomingMessageDto incomingMessage = objectMapper.readValue(message, IncomingMessageDto.class);
             BasePayloadDto payload = incomingMessage.data();
 
             if (payload instanceof TelemetryPayloadDto telemetry) {
-                // If it's telemetry, update the robot's state
+                // RobotStateService is now available
                 robotStateService.updateMotorPositions(telemetry.motorPositions());
-                // Optionally, broadcast the telemetry to a specific topic for UI display
                 messagingTemplate.convertAndSend("/topic/serial/telemetry", telemetry);
 
             } else if (payload instanceof LogPayloadDto log) {
-                // If it's a log, forward it to the logs topic
                 logger.info("Read LOG from serial: [{}] {}", log.level(), log.message());
                 messagingTemplate.convertAndSend("/topic/serial/logs", log);
             }
-            logger.info("Message recieved from serial: {}", message);
+            logger.info("Message received from serial: {}", message);
 
         } catch (Exception e) {
             logger.error("Failed to parse JSON from serial: '{}'", message, e);
-            // Send raw message to a debug topic if parsing fails
             messagingTemplate.convertAndSend("/topic/serial/raw", message);
         }
+    } // <--- PREVIOUSLY, THE CLASS CLOSED HERE. THIS WAS THE ERROR.
 
-    }
-}
+    // --- PRIVATE HELPER METHODS (NOW CORRECTLY INSIDE THE CLASS) ---
 
-/**
- * Handles the event when the serial port is disconnected.
- */
-private void handlePortDisconnected() {
-    logger.warn("Serial port [{}] disconnected.", commPort.getSystemPortName());
-    closeAndScheduleReconnection();
-}
-
-/**
- * Encapsulates the logic to find, configure, and open the serial port.
- */
-private void connect() {
-    if (commPort != null && commPort.isOpen()) {
-        logger.info("Connect call ignored, port is already open.");
-        return;
+    private void handlePortDisconnected() {
+        // Check for null to avoid NullPointerException if called oddly
+        String name = (commPort != null) ? commPort.getSystemPortName() : "Unknown";
+        logger.warn("Serial port [{}] disconnected.", name);
+        closeAndScheduleReconnection();
     }
 
-    // *** SET YOUR PORT HERE ***
-    commPort = SerialPort.getCommPort("COM6");
+    private void connect() {
+        if (commPort != null && commPort.isOpen()) {
+            logger.info("Connect call ignored, port is already open.");
+            return;
+        }
 
-    // Set port parameters
-    commPort.setBaudRate(115200);
-    commPort.setNumDataBits(8);
-    commPort.setNumStopBits(1);
-    commPort.setParity(SerialPort.NO_PARITY);
+        // Use the variable injected from properties
+        commPort = SerialPort.getCommPort(portName);
 
-    if (commPort.openPort()) {
-        logger.info("Successfully opened port: {}", commPort.getSystemPortName());
-        cancelReconnectionTask(); // Connection is successful, cancel the retry task
-        commPort.addDataListener(this);
-    } else {
-        logger.warn("Failed to open port: {}. Will retry automatically.", commPort.getSystemPortName());
-        scheduleReconnection(); // If the initial connection fails, start the retry task
+        commPort.setBaudRate(115200);
+        commPort.setNumDataBits(8);
+        commPort.setNumStopBits(1);
+        commPort.setParity(SerialPort.NO_PARITY);
+
+        if (commPort.openPort()) {
+            logger.info("Successfully opened port: {}", commPort.getSystemPortName());
+            cancelReconnectionTask();
+            commPort.addDataListener(this);
+        } else {
+            logger.warn("Failed to open port: {}. Will retry automatically.", commPort.getSystemPortName());
+            scheduleReconnection();
+        }
     }
-}
 
-private void closeAndScheduleReconnection() {
-    if (commPort != null && commPort.isOpen()) {
-        commPort.closePort();
+    private void closeAndScheduleReconnection() {
+        if (commPort != null && commPort.isOpen()) {
+            commPort.removeDataListener(); // Good practice to remove listener before closing
+            commPort.closePort();
+        }
+        scheduleReconnection();
     }
-    scheduleReconnection();
-}
 
-/**
- * Schedules a recurring task to attempt reconnection if one isn't already running.
- */
-private synchronized void scheduleReconnection() {
-    if (reconnectionTask == null || reconnectionTask.isDone()) {
-        logger.info("Scheduling reconnection task to run every 5 seconds.");
-        // The task will run every 5 seconds until it is cancelled.
-        reconnectionTask = taskScheduler.scheduleAtFixedRate(this::connect, 5000);
+    private synchronized void scheduleReconnection() {
+        if (reconnectionTask == null || reconnectionTask.isDone()) {
+            logger.info("Scheduling reconnection task to run every 5 seconds.");
+            reconnectionTask = taskScheduler.scheduleAtFixedRate(this::connect, 5000);
+        }
     }
-}
 
-/**
- * Cancels the reconnection task if it is currently active.
- */
-private synchronized void cancelReconnectionTask() {
-    if (reconnectionTask != null && !reconnectionTask.isDone()) {
-        logger.info("Serial connection established. Cancelling reconnection task.");
-        reconnectionTask.cancel(false); // false: don't interrupt if already running
+    private synchronized void cancelReconnectionTask() {
+        if (reconnectionTask != null && !reconnectionTask.isDone()) {
+            logger.info("Serial connection established. Cancelling reconnection task.");
+            reconnectionTask.cancel(false);
+        }
     }
-}
-}
+} // <--- CLASS CORRECTLY CLOSES HERE

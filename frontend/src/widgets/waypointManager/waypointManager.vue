@@ -1,106 +1,94 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue' //
 import { ArrowLeft, Plus } from 'lucide-vue-next'
+// Shared UI
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+// Shared API
+import { useStomp } from '@/shared/api/useStomp'
 
-// Import Sub-components and Types
-import WaypointList from './waypointList.vue'
-import WaypointEditor from './waypointEditor.vue'
-import { useStomp } from '@/composable/useStomp'
-import type {Sequence} from "@/types/robotarm.ts";
+// FSD Layers
+import SequenceList from '@/entities/sequence/ui/SequenceList.vue'
+import SequenceEditor from '@/features/manage-sequence/ui/SequenceEditor.vue'
+import type { Sequence } from '@/entities/sequence/types'
 
 // --- State ---
 const selectedSequence = ref<Sequence | null>(null)
 const sequences = ref<Sequence[]>([])
 
 // --- WebSocket Integration ---
-const { publish, subscribe } = useStomp()
+// 1. Get isConnected from the hook
+const { publish, subscribe, isConnected } = useStomp()
 
-// 1. Subscription
-// Now safe to call at the top level.
-// - It automatically waits for the connection.
-// - It automatically registers cleanup when this component unmounts.
+// 2. Subscription (Safe to call immediately, the hook handles queuing)
 subscribe('/topic/sequences', (data: Sequence[]) => {
   sequences.value = data
 })
 
-// 2. Initial Data Fetch
-// Now safe to call immediately.
-// - If connected, it sends.
-// - If disconnected, it waits and sends as soon as the connection opens.
-publish('/app/sequences/get', {})
+// 3. Initial Data Fetch (The Fix)
+// We must wait for the connection to be TRUE before publishing
+const fetchSequences = () => {
+  console.log("Connection ready. Fetching sequences...")
+  publish('/app/sequences/get', {})
+}
+
+if (isConnected.value) {
+  // If already connected (e.g. re-navigation), fetch immediately
+  fetchSequences()
+} else {
+  // Otherwise, watch for the connection to open
+  const unwatch = watch(isConnected, (connected) => {
+    if (connected) {
+      fetchSequences()
+      unwatch() // Stop watching once done
+    }
+  })
+}
 
 // --- Handlers ---
-
-// Enter Edit Mode
+// (Keep the rest of your handlers exactly as they were)
 const handleEdit = (seq: Sequence) => {
-  selectedSequence.value = seq
+  selectedSequence.value = JSON.parse(JSON.stringify(seq))
 }
 
-// Exit Edit Mode
-const handleBack = () => {
-  selectedSequence.value = null
-}
-
-// Create New Sequence
 const handleAdd = () => {
-  const newSequencePayload = {
+  const newSequencePayload: Sequence = {
     title: 'New Sequence',
     description: 'Enter description here...',
     steps: [{
       name: "New Step",
-      pose: {
-        x: 0,
-        y: 0,
-        z: 0,
-        roll: 0,
-        pitch: 0,
-        yaw: 0
-      },
+      pose: { x: 0, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 },
       interpolation: 'LINEAR',
       speed: 100
     }],
-    settings: {
-      loop: false
-    },
+    settings: { loop: false }
   }
-  // Publish an event to the backend to create a new sequence.
   publish('/app/sequences/create', newSequencePayload)
 }
 
-// Delete Sequence (Triggered by Editor)
-const handleDeleteSequence = (id: number) => {
-  console.log("Tried to delete the sequence with id:" + id)
-  publish('/app/sequences/' + id + '/delete',{})
-  // Close the editor
-  selectedSequence.value = null
-}
-
-// Update Sequence (Triggered by Editor)
 const handleUpdateSequence = (updatedSequence: Sequence) => {
-  // Publish the entire updated sequence object to the backend.
-  publish('/app/sequences/' + updatedSequence.id + '/update', updatedSequence)
-  // Exit the editor and return to the list view as user feedback
+  publish(`/app/sequences/${updatedSequence.id}/update`, updatedSequence)
   selectedSequence.value = null
 }
 
-// Play Sequence
+const handleDeleteSequence = (id: number) => {
+  publish(`/app/sequences/${id}/delete`, {})
+  selectedSequence.value = null
+}
+
 const handlePlaySequence = (id: number) => {
-  console.log('Playing sequence via WebSocket:', id)
-  publish('/app/sequences/' + id + '/play', {})
+  publish(`/app/sequences/${id}/play`, {})
 }
 </script>
 
 <template>
-  <Card class="flex flex-col bg-card">
-
-    <CardHeader class="flex flex-row items-center space-y-0 gap-4">
+  <Card class="flex flex-col bg-card h-full">
+    <CardHeader class="flex flex-row items-center space-y-0 gap-4 border-b pb-4">
       <Button
         v-if="selectedSequence"
         variant="outline"
         size="icon"
-        @click="handleBack"
+        @click="selectedSequence = null"
       >
         <ArrowLeft class="w-4 h-4" />
       </Button>
@@ -121,17 +109,17 @@ const handlePlaySequence = (id: number) => {
       </div>
     </CardHeader>
 
-    <CardContent>
-      <div class="max-h-[400px] overflow-y-auto pr-4">
+    <CardContent class="p-0 overflow-hidden flex-1">
+      <div class="h-full overflow-y-auto p-4">
 
-        <WaypointEditor
+        <SequenceEditor
           v-if="selectedSequence"
           :sequence="selectedSequence"
           @delete-sequence="handleDeleteSequence"
           @update-sequence="handleUpdateSequence"
         />
 
-        <WaypointList
+        <SequenceList
           v-else
           :sequences="sequences"
           @edit="handleEdit"
@@ -140,6 +128,5 @@ const handlePlaySequence = (id: number) => {
 
       </div>
     </CardContent>
-
   </Card>
 </template>

@@ -1,5 +1,5 @@
 import { ref, readonly } from 'vue'
-import { useStomp } from '@/composable/useStomp'
+import { useStomp } from '@/shared/api/useStomp.ts'
 
 // --- Type Definition for a Log Message ---
 export interface LogMessage {

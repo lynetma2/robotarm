@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import draggable from 'vuedraggable'
 import { GripVertical, Trash2, Plus, Save } from 'lucide-vue-next'
+
+// Shared UI
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/shared/ui/accordion'
-import type {Sequence} from "@/types/robotarm.ts";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/shared/ui/accordion'
+
+// Entity Types
+import type { Sequence, Step } from '@/entities/sequence/model/types'
 
 const props = defineProps<{
   sequence: Sequence
@@ -21,23 +20,16 @@ const emit = defineEmits<{
   (e: 'update-sequence', sequence: Sequence): void
 }>()
 
-// --- Actions ---
+// --- Local Actions ---
 
 const addWaypoint = () => {
-  // Create a unique ID (using random for demo purposes)
-  props.sequence.steps.push({
+  const newStep: Step = {
     name: "New Step",
-    pose: {
-      x: 0,
-      y: 0,
-      z: 0,
-      roll: 0,
-      pitch: 0,
-      yaw: 0
-    },
+    pose: { x: 0, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 },
     speed: 100,
     interpolation: 'LINEAR'
-  })
+  }
+  props.sequence.steps.push(newStep)
 }
 
 const removeWaypoint = (index: number) => {
@@ -45,10 +37,8 @@ const removeWaypoint = (index: number) => {
 }
 
 const saveList = () => {
-  console.log("Save was pressed!")
   emit('update-sequence', props.sequence)
 }
-
 </script>
 
 <template>
@@ -75,7 +65,7 @@ const saveList = () => {
       <template #item="{ element: point, index }">
         <div class="border rounded-md bg-card">
           <Accordion type="single" collapsible class="w-full">
-            <AccordionItem :value="String(point.id)" class="border-0">
+            <AccordionItem :value="String(index)" class="border-0">
 
               <div class="flex items-center px-4 py-2">
                 <div class="drag-handle cursor-grab active:cursor-grabbing mr-4 text-muted-foreground hover:text-foreground">
@@ -83,7 +73,10 @@ const saveList = () => {
                 </div>
 
                 <AccordionTrigger class="flex-1 py-0 hover:no-underline">
-                  <span class="text-sm font-medium">Step {{ index + 1 }} <span class="text-muted-foreground font-normal ml-2">(ID: {{ point.id }})</span></span>
+                  <span class="text-sm font-medium">
+                    Step {{ index + 1 }}
+                    <span v-if="point.id" class="text-muted-foreground font-normal ml-2">(ID: {{ point.id }})</span>
+                  </span>
                   <span class="ml-auto mr-4 text-xs text-muted-foreground">
                     X: {{ point.pose.x }} / Y: {{ point.pose.y }}
                   </span>
@@ -124,32 +117,23 @@ const saveList = () => {
       </template>
     </draggable>
 
-    <Button
-      class="w-full"
-      variant="outline"
-      border="dashed"
-      @click="addWaypoint"
-    >
+    <Button class="w-full" variant="outline" border="dashed" @click="addWaypoint">
       <Plus class="w-4 h-4 mr-2" /> Add Waypoint Step
     </Button>
 
     <div class="border-t pt-6 mt-6 flex flex-col gap-3">
-
-      <Button
-        class="w-full"
-        @click="saveList"
-      >
+      <Button class="w-full" @click="saveList">
         <Save class="w-4 h-4 mr-2" /> Save Changes
       </Button>
 
       <Button
+        v-if="props.sequence.id"
         variant="destructive"
         class="w-full text-white"
         @click="$emit('delete-sequence', props.sequence.id)"
       >
         <Trash2 class="w-4 h-4 mr-2" /> Delete Entire Sequence
       </Button>
-
     </div>
 
   </div>

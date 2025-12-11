@@ -1,38 +1,40 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ScrollText } from 'lucide-vue-next'
+
+// --- Shared UI ---
 import { Button } from '@/shared/ui/button'
 import { Card } from '@/shared/ui/card'
-import "./style.css"
-
-// Components
-import MotorCard from "@/widgets/motorConfiguration/motorCard.vue";
-import ConnectionStatus from "@/widgets/connectionStatus/connectionStatus.vue";
-import WaypointManager from "@/widgets/waypointManager/waypointManager.vue";
-import SimulationView from "@/widgets/simulationView/simulationView.vue";
-import JoggingCard from "@/widgets/jogging/joggingCard.vue"; // Import new card
-import SerialLogViewer from "@/widgets/serialLogViewer/serialLogViewer.vue";
-import { ScrollText } from 'lucide-vue-next'
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
 } from '@/shared/ui/sheet'
+import "./style.css"
 
-// Composables
-import { useGamepad } from '@/composable/useGamepad.ts';
-import { useStomp } from '@/composable/useStomp.ts';
+// --- FSD Widgets ---
+// (Ensure your folders match these paths, or adjust to where you moved them)
+import ConnectionStatus from "@/widgets/connectionStatus/connectionStatus.vue"
+import WaypointManager from "@/widgets/waypointManager/waypointManager.vue"
+import SimulationView from "@/widgets/simulationView/simulationView.vue"
+import JoggingCard from "@/widgets/jogging/joggingCard.vue"
+import SerialLogViewer from "@/widgets/serialLogViewer/serialLogViewer.vue"
 
-const serialConnected = ref(true)
+// --- Entities ---
+import { useSerialLogs } from '@/entities/log/model/useSerialLogs'
+import { useMachineStore } from '@/entities/esp32/model/store'
 
-// Use the gamepad hook here to pass status to the header
-const { isConnected: isControllerConnected } = useGamepad()
-const { isConnected: isWsConnected } = useStomp() // Use our new STOMP composable
+// 1. Eager Initialization
+// Start the log subscription immediately. It persists even if the Sheet is closed.
+useSerialLogs()
+
+// 2. Machine Store
+// We use this to toggle serial connection from the Dev Controls
+const machineStore = useMachineStore()
 </script>
 
 <template>
   <div class="min-h-screen w-full bg-background p-6">
 
-    <!-- Top-right icon buttons -->
     <div class="fixed top-4 right-4 z-[999] flex items-center gap-2">
       <Sheet>
         <SheetTrigger as-child>
@@ -44,11 +46,8 @@ const { isConnected: isWsConnected } = useStomp() // Use our new STOMP composabl
           <SerialLogViewer />
         </SheetContent>
       </Sheet>
-      <ConnectionStatus
-        :is-serial-connected="serialConnected"
-        :is-controller-connected="isControllerConnected"
-        :is-ws-connected="isWsConnected"
-      />
+
+      <ConnectionStatus />
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-140px)]">
@@ -70,7 +69,11 @@ const { isConnected: isWsConnected } = useStomp() // Use our new STOMP composabl
         <Card class="p-4 border-dashed bg-muted/30">
           <h3 class="font-semibold text-xs mb-3 text-muted-foreground uppercase">Dev Controls</h3>
           <div class="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" @click="serialConnected = !serialConnected">
+            <Button
+              size="sm"
+              variant="outline"
+              @click="machineStore.toggleSerial()"
+            >
               Toggle Serial
             </Button>
           </div>

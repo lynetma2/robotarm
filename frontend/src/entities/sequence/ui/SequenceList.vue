@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { Play, Pencil } from 'lucide-vue-next'
 import { Button } from '@/shared/ui/button'
-import type {Sequence} from "@/types/robotarm.ts";
+import type { Sequence } from '../model/types'
 
-// Props: Receive data from parent
+// Props: Data only
 defineProps<{
   sequences: Sequence[]
 }>()
 
-// Emits: Tell parent when buttons are clicked
+// Emits: Actions only
 const emit = defineEmits<{
   (e: 'edit', sequence: Sequence): void
   (e: 'play', id: number): void
@@ -28,7 +28,7 @@ const emit = defineEmits<{
       </div>
 
       <div class="flex items-center gap-2">
-        <Button size="icon" variant="ghost" @click="emit('play', item.id)">
+        <Button size="icon" variant="ghost" @click="emit('play', item.id!)">
           <Play class="w-4 h-4" />
         </Button>
         <Button size="icon" variant="outline" @click="emit('edit', item)">
