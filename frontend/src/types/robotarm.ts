@@ -30,11 +30,6 @@ export interface Sequence {
   settings: Settings;
 }
 
-// Represents a sequence that is saved and has an ID
-export interface SavedSequence extends Sequence {
-  id: string;
-}
-
 // Jog event information
 export enum DirectionEnum {
   clockwise = 1,
