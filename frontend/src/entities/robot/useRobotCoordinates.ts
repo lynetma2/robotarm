@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useStomp } from '@/shared/api/useStomp'
-import type { Coordinate } from './types'
+import type {Coordinate, Telemetry} from './types'
+import {toCoordinates} from "@/shared/lib/utils.ts";
 
 export function useRobotCoordinates() {
   const { subscribe } = useStomp()
@@ -16,8 +17,10 @@ export function useRobotCoordinates() {
   ])
 
   // Subscribe to live updates
-  subscribe('/topic/coordinates', (payload: Coordinate[]) => {
-    coordinates.value = payload
+  subscribe('/topic/serial/telemetry', (payload: Telemetry) => {
+
+    coordinates.value = toCoordinates(payload)
+    console.log("received the following telemetry data:", coordinates.value)
   })
 
   return { coordinates }
