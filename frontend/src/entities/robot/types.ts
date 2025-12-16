@@ -19,3 +19,8 @@ export interface Coordinate {
   label: string;
   value: string | number;
 }
+
+export interface Telemetry {
+  motor_positions: number[];
+  num_motors: number;
+}
