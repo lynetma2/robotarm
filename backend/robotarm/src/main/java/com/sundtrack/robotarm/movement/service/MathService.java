@@ -38,6 +38,7 @@ public class MathService {
     public DriveSegmentDTO[] calculateDriveSegments(PoseDto endPose, double requestedSpeed) {
         // Get the CURRENT motor positions from the state service. This is the true starting point.
         long[] startMotorPositionsInSteps = robotStateService.getCurrentMotorPositions();
+        logger.info("Found these current motorPositions: {}", startMotorPositionsInSteps);
 
         // --- 1. Inverse Kinematics: Convert Cartesian poses to motor positions (angles/steps) ---
         // This is a placeholder for your robot's specific inverse kinematics.

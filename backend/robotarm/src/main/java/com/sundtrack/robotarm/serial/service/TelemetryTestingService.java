@@ -6,6 +6,7 @@ import com.sundtrack.robotarm.state.RobotStateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.Random;
 
 @Service
+@ConditionalOnProperty(name = "robot.telemetry.simulation.enabled", havingValue = "true", matchIfMissing = false)
 public class TelemetryTestingService {
 
     private final SimpMessagingTemplate messagingTemplate;
@@ -31,7 +33,7 @@ public class TelemetryTestingService {
     }
 
     // Run every 100ms (10Hz)
-    @Scheduled(fixedRate = 100)
+    @Scheduled(fixedRate = 10000)
     public void sendRandomTelemetry() {
         // Update positions with a small random change to simulate movement
         for (int i = 0; i < simulatedPositions.length; i++) {
