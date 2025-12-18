@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue' //
-import { ArrowLeft, Plus } from 'lucide-vue-next'
+import { ArrowLeft, Plus, PlayCircle } from 'lucide-vue-next'
 // Shared UI
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 // Shared API
 import { useStomp } from '@/shared/api/useStomp'
+import { useSimulationStore } from '@/entities/simulation/model/store'
 
 // FSD Layers
 import SequenceList from '@/entities/sequence/ui/SequenceList.vue'
@@ -15,6 +16,7 @@ import type { Sequence } from '@/entities/sequence/types'
 // --- State ---
 const selectedSequence = ref<Sequence | null>(null)
 const sequences = ref<Sequence[]>([])
+const simulationStore = useSimulationStore()
 
 // --- WebSocket Integration ---
 // 1. Get isConnected from the hook
@@ -79,6 +81,10 @@ const handleDeleteSequence = (id: number) => {
 const handlePlaySequence = (id: number) => {
   publish(`/app/sequences/${id}/play`, {})
 }
+
+const handleSimulate = () => {
+  if (selectedSequence.value) simulationStore.startSimulation(selectedSequence.value)
+}
 </script>
 
 <template>
@@ -94,9 +100,15 @@ const handlePlaySequence = (id: number) => {
       </Button>
 
       <div class="flex flex-col">
-        <CardTitle>
-          {{ selectedSequence ? `Editing: ${selectedSequence.title}` : 'Waypoint Manager' }}
-        </CardTitle>
+        <div class="flex items-center gap-2">
+          <CardTitle>
+            {{ selectedSequence ? `Editing: ${selectedSequence.title}` : 'Waypoint Manager' }}
+          </CardTitle>
+          <!-- Simulation Button -->
+          <Button v-if="selectedSequence" variant="ghost" size="sm" class="h-6 text-blue-600 hover:text-blue-700 hover:bg-blue-50" @click="handleSimulate">
+            <PlayCircle class="w-3.5 h-3.5 mr-1" /> Simulate
+          </Button>
+        </div>
         <CardDescription>
           {{ selectedSequence ? 'Drag to reorder. Expand to edit.' : 'Save and edit movements.' }}
         </CardDescription>
