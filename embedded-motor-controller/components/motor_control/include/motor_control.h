@@ -61,7 +61,8 @@ typedef struct
 // --- Enums for Type Safety ---
 typedef enum {
     MSG_TYPE_TELEMETRY,
-    MSG_TYPE_LOG
+    MSG_TYPE_LOG,
+    MSG_TYPE_MOTORMOVING
 } msg_type_t;
 
 typedef enum {
@@ -79,6 +80,11 @@ typedef struct {
     int error_code;     // Optional, 0 if none
 } log_payload_t;
 
+typedef struct {
+    int motorId;
+    bool isMoving;
+} motor_moving_payload_t;
+
 // Specific data for Telemetry (Customize this to your needs)
 typedef struct {
     int64_t motor_positions[NUM_MOTORS];
@@ -94,6 +100,7 @@ typedef struct {
     union {
         log_payload_t log;
         telemetry_payload_t telemetry;
+        motor_moving_payload_t motor_moving;
     } data;
 
 } telemetry_packet_t;
@@ -142,4 +149,5 @@ void telemetry_task(void *pvParameters);
  */
 void log_to_json(const char *level, const char *tag, const char *format, ...);
 
+void motor_moving_to_json(int motor_id, bool is_moving);
 #endif //EMBEDDED_TEST_MOTOR_CONTROL_H

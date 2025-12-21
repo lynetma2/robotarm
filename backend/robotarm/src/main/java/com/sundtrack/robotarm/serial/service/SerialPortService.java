@@ -4,10 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper; // Import added
 import com.fazecast.jSerialComm.SerialPort;
 import com.fazecast.jSerialComm.SerialPortEvent;
 import com.fazecast.jSerialComm.SerialPortMessageListener;
-import com.sundtrack.robotarm.serial.dto.BasePayloadDto;
-import com.sundtrack.robotarm.serial.dto.IncomingMessageDto;
-import com.sundtrack.robotarm.serial.dto.LogPayloadDto;
-import com.sundtrack.robotarm.serial.dto.TelemetryPayloadDto;
+import com.sundtrack.robotarm.serial.dto.*;
 import com.sundtrack.robotarm.state.RobotStateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +34,7 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
     private SerialPort commPort;
 
     // --- PORT CONFIG ADDED HERE ---
-    @Value("${serial.port.name:COM6}") // Defaults to COM6 if not found in properties
+    @Value("${serial.port.name:COM4}") // Defaults to COM6 if not found in properties
     private String portName;
 
     @Autowired
@@ -115,6 +112,9 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
             } else if (payload instanceof LogPayloadDto log) {
                 logger.info("Read LOG from serial: [{}] {}", log.level(), log.message());
                 messagingTemplate.convertAndSend("/topic/serial/logs", log);
+            } else if (payload instanceof MotorMovingPayloadDto motorMoving) {
+                logger.info("Read MotorMoving from serial: [{}] {}", motorMoving.motorId(), motorMoving.isMoving());
+                robotStateService.updateMotorMovingState(motorMoving.motorId(), motorMoving.isMoving());
             }
             logger.info("Message received from serial: {}", message);
 

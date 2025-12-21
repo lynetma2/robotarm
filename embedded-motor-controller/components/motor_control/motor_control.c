@@ -152,7 +152,7 @@ void motor_task(void *pvParameters)
             // --- 2. Create new encoders based on the command ---
             stepper_motor_curve_encoder_config_t accel_encoder_config = {
                 .resolution = STEP_MOTOR_RESOLUTION_HZ,
-                .sample_points = cmd.accel_steps,
+                .sample_points = cmd.start_freq_hz,
                 .start_freq_hz = cmd.start_freq_hz,
                 .end_freq_hz = cmd.uniform_freq_hz,
             };
@@ -165,7 +165,7 @@ void motor_task(void *pvParameters)
 
             stepper_motor_curve_encoder_config_t decel_encoder_config = {
                 .resolution = STEP_MOTOR_RESOLUTION_HZ,
-                .sample_points = cmd.decel_steps,
+                .sample_points = cmd.end_freq_hz,
                 .start_freq_hz = cmd.uniform_freq_hz,
                 .end_freq_hz = cmd.end_freq_hz,
             };
@@ -178,6 +178,7 @@ void motor_task(void *pvParameters)
 
             // --- 4. Transmit the new profiles ---
             rmt_transmit_config_t tx_config = { .loop_count = 0 };
+            motor_moving_to_json(motor_id, true);
 
             if (cmd.accel_steps > 0) {
                 ESP_ERROR_CHECK(rmt_transmit(motor->rmt_channel, motor->accel_encoder, &cmd.accel_steps, sizeof(cmd.accel_steps), &tx_config));
@@ -195,6 +196,7 @@ void motor_task(void *pvParameters)
             ESP_ERROR_CHECK(rmt_tx_wait_all_done(motor->rmt_channel, -1));
             gpio_set_level(motor->en_gpio, !STEP_MOTOR_ENABLE_LEVEL);
 
+            motor_moving_to_json(motor_id, false);
             log_to_json("INFO", TAG, "[Motor %d] Move complete.", motor_id);
         }
     }
@@ -276,4 +278,27 @@ void motor_init(MotorConfig *motor)
     ESP_ERROR_CHECK(pcnt_unit_start(motor->pcnt_unit));
 
     log_to_json("INFO", TAG, "[Motor %d] Initialized", motor->id);
+}
+
+void motor_moving_to_json(int motor_id, bool is_moving)
+{
+    cJSON *root = cJSON_CreateObject();
+    if (root) {
+        cJSON_AddNumberToObject(root, "timestamp", xTaskGetTickCount() * portTICK_PERIOD_MS);
+        cJSON_AddStringToObject(root, "source", TAG);
+
+        cJSON *data = cJSON_AddObjectToObject(root, "data");
+        cJSON_AddStringToObject(data, "type", "motormoving");
+        cJSON_AddNumberToObject(data, "motorId", motor_id);
+        cJSON_AddBoolToObject(data, "isMoving", is_moving);
+
+
+        // 5. Serialize the JSON object and send it via UART
+        char *json_string = cJSON_PrintUnformatted(root);
+        if (json_string) {
+            printf("%s\n", json_string); // Print to the console/USB UART
+            cJSON_free(json_string);
+        }
+        cJSON_Delete(root);
+    }
 }

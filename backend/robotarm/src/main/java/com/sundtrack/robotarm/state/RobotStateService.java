@@ -3,6 +3,8 @@ package com.sundtrack.robotarm.state;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A thread-safe service that acts as the single source of truth for the robot's current physical state.
@@ -13,6 +15,8 @@ public class RobotStateService {
     // Assuming a max of 6 motors.
     // 'volatile' ensures that writes from the serial thread are visible to other threads.
     private volatile long[] currentMotorPositions = new long[6];
+    private volatile boolean[] motorIsMoving = new boolean[6];
+    private final Object lock = new Object();
 
     /**
      * Updates the current known positions of the motors.
@@ -29,5 +33,41 @@ public class RobotStateService {
      */
     public long[] getCurrentMotorPositions() {
         return Arrays.copyOf(this.currentMotorPositions, this.currentMotorPositions.length);
+    }
+
+    public void updateMotorMovingState(int motorId, boolean isMoving) {
+        synchronized (lock) {
+            motorIsMoving[motorId] = isMoving;
+            // If this update means all motors are now stopped, notify waiting threads
+            if (!isAnyMotorMoving()) {
+                lock.notifyAll();
+            }
+        }
+    }
+
+    public boolean getIsMotorMoving(int motorId) {
+        synchronized (lock) {
+            return motorIsMoving[motorId];
+        }
+    }
+
+    public void waitForAllMotorsToStop() {
+        synchronized (lock) {
+            while (isAnyMotorMoving()) {
+                try {
+                    lock.wait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+    }
+
+    private boolean isAnyMotorMoving() {
+        for (boolean moving : motorIsMoving) {
+            if (moving) return true;
+        }
+        return false;
     }
 }
