@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue' //
+import { ref, onMounted } from 'vue'
 import { ArrowLeft, Plus, PlayCircle } from 'lucide-vue-next'
 // Shared UI
 import { Button } from '@/shared/ui/button'
@@ -18,34 +18,24 @@ const selectedSequence = ref<Sequence | null>(null)
 const sequences = ref<Sequence[]>([])
 const simulationStore = useSimulationStore()
 
-// --- WebSocket Integration ---
-// 1. Get isConnected from the hook
-const { publish, subscribe, isConnected } = useStomp()
+// --- API Integration ---
+const { publish } = useStomp() // Keep for Play command
+const API_BASE = '/api/v1/sequences'
 
-// 2. Subscription (Safe to call immediately, the hook handles queuing)
-subscribe('/topic/sequences', (data: Sequence[]) => {
-  sequences.value = data
-})
-
-// 3. Initial Data Fetch (The Fix)
-// We must wait for the connection to be TRUE before publishing
-const fetchSequences = () => {
-  console.log("Connection ready. Fetching sequences...")
-  publish('/app/sequences/get', {})
-}
-
-if (isConnected.value) {
-  // If already connected (e.g. re-navigation), fetch immediately
-  fetchSequences()
-} else {
-  // Otherwise, watch for the connection to open
-  const unwatch = watch(isConnected, (connected) => {
-    if (connected) {
-      fetchSequences()
-      unwatch() // Stop watching once done
+const fetchSequences = async () => {
+  try {
+    const res = await fetch(API_BASE)
+    if (res.ok) {
+      sequences.value = await res.json()
     }
-  })
+  } catch (e) {
+    console.error("Failed to fetch sequences", e)
+  }
 }
+
+onMounted(() => {
+  fetchSequences()
+})
 
 // --- Handlers ---
 // (Keep the rest of your handlers exactly as they were)
@@ -53,7 +43,7 @@ const handleEdit = (seq: Sequence) => {
   selectedSequence.value = JSON.parse(JSON.stringify(seq))
 }
 
-const handleAdd = () => {
+const handleAdd = async () => {
   const newSequencePayload: Sequence = {
     title: 'New Sequence',
     description: 'Enter description here...',
@@ -65,17 +55,45 @@ const handleAdd = () => {
     }],
     settings: { loop: false }
   }
-  publish('/app/sequences/create', newSequencePayload)
+  
+  try {
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSequencePayload)
+    })
+    if (res.ok) sequences.value = await res.json()
+  } catch (e) {
+    console.error("Failed to create sequence", e)
+  }
 }
 
-const handleUpdateSequence = (updatedSequence: Sequence) => {
-  publish(`/app/sequences/${updatedSequence.id}/update`, updatedSequence)
-  selectedSequence.value = null
+const handleUpdateSequence = async (updatedSequence: Sequence) => {
+  try {
+    const res = await fetch(`${API_BASE}/${updatedSequence.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedSequence)
+    })
+    if (res.ok) {
+      sequences.value = await res.json()
+      selectedSequence.value = null
+    }
+  } catch (e) {
+    console.error("Failed to update sequence", e)
+  }
 }
 
-const handleDeleteSequence = (id: number) => {
-  publish(`/app/sequences/${id}/delete`, {})
-  selectedSequence.value = null
+const handleDeleteSequence = async (id: number) => {
+  try {
+    const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      sequences.value = await res.json()
+      selectedSequence.value = null
+    }
+  } catch (e) {
+    console.error("Failed to delete sequence", e)
+  }
 }
 
 const handlePlaySequence = (id: number) => {

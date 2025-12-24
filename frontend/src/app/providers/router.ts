@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import MotorConfigPage from "@/pages/motorConfigPage.vue";
 
 // Lazy load pages
 const DashboardPage = () => import('@/pages/dashboard/DashboardPage.vue')
@@ -16,6 +17,11 @@ const router = createRouter({
       path: '/editor',
       name: 'Editor',
       component: EditorPage
+    },
+    {
+      path: '/motorConfig',
+      name: 'MotorConfig',
+      component: MotorConfigPage
     }
   ]
 })

@@ -1,11 +1,11 @@
-package com.sundtrack.robotarm.tmc2209.service;
+package com.sundtrack.robotarm.motorConfig.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sundtrack.robotarm.tmc2209.dto.TMC2209RegisterPayload;
+import com.sundtrack.robotarm.motorConfig.dto.TMC2209RegisterPayload;
 import com.sundtrack.robotarm.serial.service.SerialPortService;
-import com.sundtrack.robotarm.tmc2209.model.TMC2209Config;
-import com.sundtrack.robotarm.tmc2209.repository.TMC2209ConfigRepository;
+import com.sundtrack.robotarm.motorConfig.model.MotorConfig;
+import com.sundtrack.robotarm.motorConfig.repository.MotorConfigRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,40 +16,40 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Service
-public class TMC2209ConfigService {
+public class MotorConfigService {
 
-    private static final Logger logger = LoggerFactory.getLogger(TMC2209ConfigService.class);
+    private static final Logger logger = LoggerFactory.getLogger(MotorConfigService.class);
 
-    private final TMC2209ConfigRepository configRepository;
+    private final MotorConfigRepository configRepository;
     private final SerialPortService serialPortService;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public TMC2209ConfigService(TMC2209ConfigRepository configRepository, SerialPortService serialPortService, ObjectMapper objectMapper) {
+    public MotorConfigService(MotorConfigRepository configRepository, SerialPortService serialPortService, ObjectMapper objectMapper) {
         this.configRepository = configRepository;
         this.serialPortService = serialPortService;
         this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
-    public TMC2209Config getConfigForMotor(int motorId) {
+    public MotorConfig getConfigForMotor(int motorId) {
         // Find existing config or return a new one with default values
         return configRepository.findById(motorId).orElseGet(() -> {
-            TMC2209Config defaultConfig = new TMC2209Config();
+            MotorConfig defaultConfig = new MotorConfig();
             defaultConfig.setMotorId(motorId);
             return defaultConfig;
         });
     }
 
     @Transactional
-    public TMC2209Config updateAndSyncConfig(int motorId, TMC2209Config updatedConfig) {
+    public MotorConfig updateAndSyncConfig(int motorId, MotorConfig updatedConfig) {
         updatedConfig.setMotorId(motorId);
-        TMC2209Config savedConfig = configRepository.save(updatedConfig);
+        MotorConfig savedConfig = configRepository.save(updatedConfig);
         synchronizeWithDevice(savedConfig);
         return savedConfig;
     }
 
-    private void synchronizeWithDevice(TMC2209Config config) {
+    private void synchronizeWithDevice(MotorConfig config) {
         try {
             // 1. Convert the config object to its packed integer representation.
             TMC2209RegisterPayload payload = TMC2209RegisterPayload.fromConfig(config);

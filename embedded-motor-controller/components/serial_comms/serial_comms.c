@@ -45,31 +45,34 @@ static void parse_and_dispatch_command(const char *json_string) {
         return;
     }
 
+    // Extract sequence number (if present) to ACK later
+    const cJSON *seq_item = cJSON_GetObjectItem(root, "seq");
+    double seq = -1.0;
+    if (cJSON_IsNumber(seq_item)) {
+        seq = seq_item->valuedouble;
+    }
+
     const cJSON *cmd_item = cJSON_GetObjectItem(root, "cmd");
     if (!cJSON_IsString(cmd_item) || (cmd_item->valuestring == NULL)) {
         ESP_LOGE(TAG, "JSON missing or invalid 'cmd' field");
-        cJSON_Delete(root);
-        return;
+        goto cleanup;
     }
 
     if (strcmp(cmd_item->valuestring, "step") != 0) {
         ESP_LOGW(TAG, "Received unknown command: %s", cmd_item->valuestring);
-        cJSON_Delete(root);
-        return;
+        goto cleanup;
     }
 
     const cJSON *data = cJSON_GetObjectItem(root, "data");
     if (!cJSON_IsObject(data)) {
         ESP_LOGE(TAG, "JSON missing 'data' object");
-        cJSON_Delete(root);
-        return;
+        goto cleanup;
     }
 
     const cJSON *segments = cJSON_GetObjectItem(data, "segments");
     if (!cJSON_IsArray(segments)) {
         ESP_LOGE(TAG, "JSON 'data' missing 'segments' array");
-        cJSON_Delete(root);
-        return;
+        goto cleanup;
     }
 
     cJSON *segment = NULL;
@@ -108,6 +111,10 @@ static void parse_and_dispatch_command(const char *json_string) {
         }
     }
 
+cleanup:
+    if (seq != -1.0) {
+        send_ack(seq);
+    }
     cJSON_Delete(root);
 }
 

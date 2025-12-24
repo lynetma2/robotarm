@@ -326,3 +326,23 @@ void motor_moving_to_json(int motor_id, bool is_moving)
         cJSON_Delete(root);
     }
 }
+
+void send_ack(double seq)
+{
+    cJSON *root = cJSON_CreateObject();
+    if (root) {
+        cJSON_AddNumberToObject(root, "timestamp", xTaskGetTickCount() * portTICK_PERIOD_MS);
+        cJSON_AddStringToObject(root, "source", TAG);
+
+        cJSON *data = cJSON_AddObjectToObject(root, "data");
+        cJSON_AddStringToObject(data, "type", "ack");
+        cJSON_AddNumberToObject(data, "seq", seq);
+
+        char *json_string = cJSON_PrintUnformatted(root);
+        if (json_string) {
+            printf("%s\n", json_string);
+            cJSON_free(json_string);
+        }
+        cJSON_Delete(root);
+    }
+}

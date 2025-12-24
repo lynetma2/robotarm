@@ -1,13 +1,13 @@
-package com.sundtrack.robotarm.tmc2209.model;
+package com.sundtrack.robotarm.motorConfig.model;
 
-import com.sundtrack.robotarm.tmc2209.dto.CHOPCONF;
-import com.sundtrack.robotarm.tmc2209.dto.GCONF;
-import com.sundtrack.robotarm.tmc2209.dto.IHOLD_IRUN;
-import com.sundtrack.robotarm.tmc2209.dto.PWMCONF;
+import com.sundtrack.robotarm.motorConfig.dto.CHOPCONF;
+import com.sundtrack.robotarm.motorConfig.dto.GCONF;
+import com.sundtrack.robotarm.motorConfig.dto.IHOLD_IRUN;
+import com.sundtrack.robotarm.motorConfig.dto.PWMCONF;
 import jakarta.persistence.*;
 
 @Entity
-public class TMC2209Config {
+public class MotorConfig {
 
     @Id
     private Integer motorId;

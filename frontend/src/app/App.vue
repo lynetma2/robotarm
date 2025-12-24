@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import "./style.css"
+import MainLayout from "@/app/layouts/MainLayout.vue"
 
 // --- Global Init ---
 import { useSerialLogs } from '@/entities/log/model/useSerialLogs'
@@ -27,18 +28,18 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="font-sans text-foreground bg-background min-h-screen">
+  <MainLayout>
     <RouterView v-slot="{ Component }">
       <Transition name="slide-fade" mode="out-in">
         <component :is="Component" />
       </Transition>
     </RouterView>
-  </div>
+  </MainLayout>
 </template>
 
 <style>
-/* 
-  Nice Page Transition 
+/*
+  Nice Page Transition
   Slides slightly up and fades in.
 */
 .slide-fade-enter-active,

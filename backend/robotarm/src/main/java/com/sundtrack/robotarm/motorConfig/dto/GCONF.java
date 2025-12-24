@@ -1,4 +1,4 @@
-package com.sundtrack.robotarm.tmc2209.dto;
+package com.sundtrack.robotarm.motorConfig.dto;
 
 import jakarta.persistence.Embeddable;
 

@@ -9,8 +9,8 @@ import {
   SelectViewport,
   useForwardPropsEmits,
 } from "reka-ui"
-import { cn } from "@/shared/lib/utils.ts"
-import { SelectScrollDownButton, SelectScrollUpButton } from "./index.ts"
+import { cn } from "@/lib/utils"
+import { SelectScrollDownButton, SelectScrollUpButton } from "."
 
 defineOptions({
   inheritAttrs: false,

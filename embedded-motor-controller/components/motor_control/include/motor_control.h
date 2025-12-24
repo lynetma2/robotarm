@@ -62,7 +62,8 @@ typedef struct
 typedef enum {
     MSG_TYPE_TELEMETRY,
     MSG_TYPE_LOG,
-    MSG_TYPE_MOTORMOVING
+    MSG_TYPE_MOTORMOVING,
+    MSG_TYPE_ACK
 } msg_type_t;
 
 typedef enum {
@@ -85,6 +86,10 @@ typedef struct {
     bool isMoving;
 } motor_moving_payload_t;
 
+typedef struct {
+    double seq;
+} ack_payload_t;
+
 // Specific data for Telemetry (Customize this to your needs)
 typedef struct {
     int64_t motor_positions[NUM_MOTORS];
@@ -101,6 +106,7 @@ typedef struct {
         log_payload_t log;
         telemetry_payload_t telemetry;
         motor_moving_payload_t motor_moving;
+        ack_payload_t ack;
     } data;
 
 } telemetry_packet_t;
@@ -150,4 +156,5 @@ void telemetry_task(void *pvParameters);
 void log_to_json(const char *level, const char *tag, const char *format, ...);
 
 void motor_moving_to_json(int motor_id, bool is_moving);
+void send_ack(double seq);
 #endif //EMBEDDED_TEST_MOTOR_CONTROL_H

@@ -3,8 +3,6 @@ package com.sundtrack.robotarm.state;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * A thread-safe service that acts as the single source of truth for the robot's current physical state.
