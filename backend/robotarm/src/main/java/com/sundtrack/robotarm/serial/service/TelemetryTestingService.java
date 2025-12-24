@@ -48,7 +48,7 @@ public class TelemetryTestingService {
         robotStateService.updateMotorPositions(positionsCopy);
 
         // Send to the frontend via the existing WebSocket topic
-        logger.info("Telemetry information sent with the following: {}", telemetry);
+        logger.debug("Telemetry information sent with the following: {}", telemetry);
         messagingTemplate.convertAndSend("/topic/serial/telemetry", telemetry);
     }
 }

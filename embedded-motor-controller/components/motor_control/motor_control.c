@@ -7,6 +7,7 @@
 #include "cJSON.h"
 #include <stdio.h>
 #include "stepper_motor_encoder.h"
+#include "freertos/semphr.h"
 
 #define PCNT_HIGH_LIMIT 30000
 #define PCNT_LOW_LIMIT  -30000
@@ -15,6 +16,7 @@ QueueHandle_t motorQueues[NUM_MOTORS];
 MotorConfig motors[NUM_MOTORS];
 
 static const char *TAG = "MOTOR_CONTROL";
+static SemaphoreHandle_t telemetry_mutex = NULL;
 
 /*
  * @brief Custom logging function to serialize log messages to JSON and print to UART.
@@ -55,15 +57,13 @@ void log_to_json(const char *level, const char *tag, const char *format, ...) {
     cJSON_Delete(root);
 }
 
-void telemetry_task(void *pvParameters)
+static void send_telemetry_update(void)
 {
-    const TickType_t xFrequency = pdMS_TO_TICKS(100); // 1000ms interval (1Hz)
-    TickType_t xLastWakeTime = xTaskGetTickCount();   // Initialize current time
+    if (telemetry_mutex == NULL) {
+        return;
+    }
 
-    log_to_json("INFO", TAG, "Telemetry task started");
-
-    while (1)
-    {
+    if (xSemaphoreTake(telemetry_mutex, portMAX_DELAY) == pdTRUE) {
         // 1. Create the telemetry packet structure
         telemetry_packet_t packet = {
             .timestamp = xTaskGetTickCount() * portTICK_PERIOD_MS, // Get current time in ms
@@ -76,9 +76,11 @@ void telemetry_task(void *pvParameters)
         for (int i = 0; i < NUM_MOTORS; i++)
         {
             // 2. Update motor position from hardware counter
-            pcnt_unit_get_count(motors[i].pcnt_unit, &pcnt_val);
-            motors[i].absolute_position += pcnt_val;
-            pcnt_unit_clear_count(motors[i].pcnt_unit);
+            if (motors[i].pcnt_unit != NULL) {
+                pcnt_unit_get_count(motors[i].pcnt_unit, &pcnt_val);
+                motors[i].absolute_position += pcnt_val;
+                pcnt_unit_clear_count(motors[i].pcnt_unit);
+            }
 
             // 3. Populate the packet with the latest data
             packet.data.telemetry.motor_positions[i] = motors[i].absolute_position;
@@ -107,7 +109,24 @@ void telemetry_task(void *pvParameters)
             }
             cJSON_Delete(root);
         }
+        xSemaphoreGive(telemetry_mutex);
+    }
+}
 
+void telemetry_task(void *pvParameters)
+{
+    const TickType_t xFrequency = pdMS_TO_TICKS(100); // 1000ms interval (1Hz)
+    TickType_t xLastWakeTime = xTaskGetTickCount();   // Initialize current time
+
+    if (telemetry_mutex == NULL) {
+        telemetry_mutex = xSemaphoreCreateMutex();
+    }
+
+    log_to_json("INFO", TAG, "Telemetry task started");
+
+    while (1)
+    {
+        send_telemetry_update();
         // Wait for the next cycle
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
@@ -196,6 +215,7 @@ void motor_task(void *pvParameters)
             ESP_ERROR_CHECK(rmt_tx_wait_all_done(motor->rmt_channel, -1));
             gpio_set_level(motor->en_gpio, !STEP_MOTOR_ENABLE_LEVEL);
 
+            send_telemetry_update();
             motor_moving_to_json(motor_id, false);
             log_to_json("INFO", TAG, "[Motor %d] Move complete.", motor_id);
         }
@@ -204,6 +224,10 @@ void motor_task(void *pvParameters)
 
 void motor_init(MotorConfig *motor)
 {
+    if (telemetry_mutex == NULL) {
+        telemetry_mutex = xSemaphoreCreateMutex();
+    }
+
     log_to_json("INFO", TAG, "Initializing Motor %d", motor->id);
 
     // Configure EN + DIR GPIOs

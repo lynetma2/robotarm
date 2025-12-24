@@ -63,7 +63,10 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
         String dataToSend = data + "\n";
         byte[] bytesToSend = dataToSend.getBytes(StandardCharsets.UTF_8);
         logger.info(">> Writing to serial: {}", data);
-        commPort.writeBytes(bytesToSend, bytesToSend.length);
+        int bytesWritten = commPort.writeBytes(bytesToSend, bytesToSend.length);
+        if (bytesWritten == -1) {
+            throw new RuntimeException("Failed to write to serial port");
+        }
     }
 
     // --- LISTENER CONFIGURATION ---
@@ -116,7 +119,7 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
                 logger.info("Read MotorMoving from serial: [{}] {}", motorMoving.motorId(), motorMoving.isMoving());
                 robotStateService.updateMotorMovingState(motorMoving.motorId(), motorMoving.isMoving());
             }
-            logger.info("Message received from serial: {}", message);
+            logger.debug("Message received from serial: {}", message);
 
         } catch (Exception e) {
             logger.error("Failed to parse JSON from serial: '{}'", message, e);
@@ -149,6 +152,7 @@ public class SerialPortService implements CommandLineRunner, SerialPortMessageLi
 
         if (commPort.openPort()) {
             logger.info("Successfully opened port: {}", commPort.getSystemPortName());
+            commPort.setComPortTimeouts(SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
             cancelReconnectionTask();
             commPort.addDataListener(this);
         } else {

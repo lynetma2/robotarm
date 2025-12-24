@@ -19,7 +19,7 @@ public class Step {
     @Enumerated(EnumType.STRING)
     private Interpolation interpolation;
 
-    private double speed;
+    private long speed;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sequence_id")
@@ -43,9 +43,9 @@ public class Step {
 
     public void setInterpolation(Interpolation interpolation) { this.interpolation = interpolation; }
 
-    public double getSpeed() { return speed; }
+    public long getSpeed() { return speed; }
 
-    public void setSpeed(double speed) { this.speed = speed; }
+    public void setSpeed(long speed) { this.speed = speed; }
 
     public Sequence getSequence() { return sequence; }
 

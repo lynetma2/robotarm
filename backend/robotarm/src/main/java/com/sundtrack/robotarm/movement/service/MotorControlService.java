@@ -98,6 +98,7 @@ public class MotorControlService {
                         String commandJson = objectMapper.writeValueAsString(command);
                         logger.info("Sending command: {}", commandJson);
                         serialPortService.writeToSerial(commandJson);
+                        robotStateService.waitForAnyMotorToStart(3000);
                         waitForMoveCompletion();
                     } catch (JsonProcessingException e) {
                         logger.error("Failed to serialize StepCommandDto for step '{}'", step.name(), e);

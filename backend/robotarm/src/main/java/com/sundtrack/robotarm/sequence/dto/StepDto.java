@@ -9,6 +9,6 @@ public record StepDto(
         String name,
         PoseDto pose,
         Interpolation interpolation,
-        double speed
+        long speed
 ) {
 }

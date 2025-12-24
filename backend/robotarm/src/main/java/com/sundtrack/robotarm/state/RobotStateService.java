@@ -38,10 +38,8 @@ public class RobotStateService {
     public void updateMotorMovingState(int motorId, boolean isMoving) {
         synchronized (lock) {
             motorIsMoving[motorId] = isMoving;
-            // If this update means all motors are now stopped, notify waiting threads
-            if (!isAnyMotorMoving()) {
-                lock.notifyAll();
-            }
+            // Notify waiting threads on any state change (start or stop)
+            lock.notifyAll();
         }
     }
 
@@ -56,6 +54,24 @@ public class RobotStateService {
             while (isAnyMotorMoving()) {
                 try {
                     lock.wait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+    }
+
+    public void waitForAnyMotorToStart(long timeoutMillis) {
+        synchronized (lock) {
+            long startTime = System.currentTimeMillis();
+            while (!isAnyMotorMoving()) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                if (elapsed >= timeoutMillis) {
+                    break;
+                }
+                try {
+                    lock.wait(timeoutMillis - elapsed);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
