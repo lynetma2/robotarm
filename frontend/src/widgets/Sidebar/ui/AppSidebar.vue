@@ -17,7 +17,7 @@ const links = [
   { name: 'Manual Control', icon: Gamepad2, href: '/manual' },
   { name: 'Editor', icon: FileCode, href: '/editor' },
   { name: 'Diagnostics', icon: Activity, href: '/diagnostics' },
-  { name: 'Motor Config', icon: Settings, href: '/config' },
+  { name: 'Motor Config', icon: Settings, href: '/motorConfig' },
 ]
 </script>
 
@@ -30,12 +30,18 @@ const links = [
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem v-for="link in links" :key="link.name">
-              <SidebarMenuButton as-child>
-                <RouterLink :to="link.href">
-                  <component :is="link.icon" />
-                  <span>{{ link.name }}</span>
-                </RouterLink>
-              </SidebarMenuButton>
+              <RouterLink :to="link.href" custom v-slot="{ isActive, isExactActive, href, navigate }">
+                <SidebarMenuButton
+                  as-child
+                  :isActive="link.href === '/' ? isExactActive : isActive"
+                  :tooltip="link.name"
+                >
+                  <a :href="href" @click="navigate">
+                    <component :is="link.icon" />
+                    <span>{{ link.name }}</span>
+                  </a>
+                </SidebarMenuButton>
+              </RouterLink>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroupContent>

@@ -1,0 +1,1 @@
+export { default as MotorConfigWidget } from './ui/MotorConfigWidget.vue'
