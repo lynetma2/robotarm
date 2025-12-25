@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { Switch } from "@/shared/ui/switch"
-import { Label } from "@/shared/ui/label"
-import { ref } from "vue"
+import { useDark, useToggle } from '@vueuse/core'
+import { Moon, Sun } from 'lucide-vue-next'
+import { Button } from '@/shared/ui/button'
 
-const isLive = ref(false)
+const isDark = useDark()
+const toggleDark = useToggle(isDark)
 </script>
 
 <template>
-  <div class="flex items-center space-x-2">
-    <Switch id="mode-switch" v-model:checked="isLive" />
-    <Label for="mode-switch">{{ isLive ? 'Live' : 'Simulation' }}</Label>
-  </div>
+  <Button variant="ghost" size="icon" @click="toggleDark()">
+    <Sun class="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+    <Moon class="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+    <span class="sr-only">Toggle theme</span>
+  </Button>
 </template>
