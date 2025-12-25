@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from "vue"
 import { PanelLeft } from "lucide-vue-next"
-import { cn } from "@/shared/lib/utils"
-import { Button } from "@/shared/ui/ui/button"
+import { cn } from '@/shared/lib/utils'
+import { Button } from '@/shared/ui/button'
 import { useSidebar } from "./utils"
 
 const props = defineProps<{
@@ -15,6 +15,7 @@ const { toggleSidebar } = useSidebar()
 <template>
   <Button
     data-sidebar="trigger"
+    data-slot="sidebar-trigger"
     variant="ghost"
     size="icon"
     :class="cn('h-7 w-7', props.class)"
