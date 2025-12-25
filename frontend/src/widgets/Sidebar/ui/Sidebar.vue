@@ -1,7 +1,17 @@
 <script setup lang="ts">
-import { cn } from "@/lib/utils"
-import { Button } from "@/shared/ui/button"
 import { LayoutDashboard, Gamepad2, FileCode, Activity, Settings } from "lucide-vue-next"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarProvider
+} from "@/shared/ui/sidebar"
 
 const links = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/' },
@@ -13,27 +23,31 @@ const links = [
 </script>
 
 <template>
-  <div class="pb-12 w-64 border-r min-h-screen">
-    <div class="space-y-4 py-4">
-      <div class="px-3 py-2">
-        <h2 class="mb-2 px-4 text-lg font-semibold tracking-tight">
-          Menu
-        </h2>
-        <div class="space-y-1">
-          <Button
-            v-for="link in links"
-            :key="link.name"
-            variant="ghost"
-            class="w-full justify-start"
-            as-child
-          >
-            <a :href="link.href">
-              <component :is="link.icon" class="mr-2 h-4 w-4" />
-              {{ link.name }}
-            </a>
-          </Button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- 
+    Ideally, SidebarProvider should wrap your entire MainLayout. 
+    If you can't move it, this will work for the sidebar itself, 
+    but the main content won't automatically adjust its width.
+  -->
+  <SidebarProvider>
+    <Sidebar>
+      <SidebarHeader />
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem v-for="link in links" :key="link.name">
+                <SidebarMenuButton as-child>
+                  <a :href="link.href">
+                    <component :is="link.icon" />
+                    <span>{{ link.name }}</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  </SidebarProvider>
 </template>
