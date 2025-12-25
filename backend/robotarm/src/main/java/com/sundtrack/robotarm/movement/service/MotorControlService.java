@@ -10,11 +10,13 @@ import com.sundtrack.robotarm.sequence.dto.SequenceDto;
 import com.sundtrack.robotarm.sequence.dto.StepDto;
 import com.sundtrack.robotarm.sequence.service.SequenceService;
 import com.sundtrack.robotarm.serial.service.SerialPortService;
+import com.sundtrack.robotarm.state.RobotStateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -26,16 +28,19 @@ public class MotorControlService {
     private final SequenceService sequenceService;
     private final ObjectMapper objectMapper;
     private final MathService mathService;
+    private final RobotStateService robotStateService;
+
 
     // Use AtomicBoolean for thread-safe state management across different requests
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
 
     @Autowired
-    public MotorControlService(SerialPortService serialPortService, SequenceService sequenceService, ObjectMapper objectMapper, MathService mathService, MovementConfig movementConfig) {
+    public MotorControlService(SerialPortService serialPortService, SequenceService sequenceService, ObjectMapper objectMapper, MathService mathService, MovementConfig movementConfig, RobotStateService robotStateService) {
         this.serialPortService = serialPortService;
         this.sequenceService = sequenceService;
         this.objectMapper = objectMapper;
         this.mathService = mathService;
+        this.robotStateService = robotStateService;
     }
 
     /**
@@ -71,30 +76,32 @@ public class MotorControlService {
                     return;
                 }
 
-                for (int i = 0; i < sequence.steps().size() - 1; i++) {
+                for (int i = 0; i < sequence.steps().size(); i++) {
                     if (!isPlaying.get()) { // Check if a 'stop' command was received
                         logger.info("Sequence playback stopped by user command.");
                         break;
                     }
 
-                    StepDto startStep = sequence.steps().get(i);
-                    StepDto endStep = sequence.steps().get(i + 1);
+                    StepDto step = sequence.steps().get(i);
 
                     // 1. Delegate all complex calculations to the MathService
-                    DriveSegmentDTO[] segments = mathService.calculateDriveSegments(endStep.pose(), endStep.speed());
+                    logger.info("Calculating i: {} with current position: {}", i, robotStateService.getCurrentMotorPositions());
+                    DriveSegmentDTO[] segments = mathService.calculateDriveSegments(step.pose(), step.speed());
+                    logger.info("Calculated these segments: {}", segments);
 
                     // 2. Create the command DTO with the calculated segments
                     var command = new StepCommandDto();
-                    command.setData(new StepCommandDto.StepData(endStep.id(), endStep.name(), segments));
+                    command.setData(new StepCommandDto.StepData(step.id(), step.name(), segments));
 
                     // 3. Serialize and send the command
                     try {
                         String commandJson = objectMapper.writeValueAsString(command);
                         logger.info("Sending command: {}", commandJson);
                         serialPortService.writeToSerial(commandJson);
-                        waitForMoveCompletion(1000); // Placeholder for hardware feedback
+                        robotStateService.waitForAnyMotorToStart(3000);
+                        waitForMoveCompletion();
                     } catch (JsonProcessingException e) {
-                        logger.error("Failed to serialize StepCommandDto for step '{}'", endStep.name(), e);
+                        logger.error("Failed to serialize StepCommandDto for step '{}'", step.name(), e);
                     }
                 }
             } catch (Exception e) {
@@ -118,12 +125,10 @@ public class MotorControlService {
         }
     }
 
-    private void waitForMoveCompletion(long millis) {
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.warn("Move delay was interrupted.");
-        }
+    private void waitForMoveCompletion() {
+        // This blocks the current thread until the RobotStateService notifies us
+        // that all motors have reported isMoving = false.
+        // This uses wait/notify under the hood, so it does not consume CPU while waiting.
+        robotStateService.waitForAllMotorsToStop();
     }
 }

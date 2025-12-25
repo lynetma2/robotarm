@@ -16,13 +16,11 @@ public class MathService {
 
     private static final Logger logger = LoggerFactory.getLogger(MathService.class);
 
-    private final ObjectMapper objectMapper;
     private final MovementConfig movementConfig;
     private final RobotStateService robotStateService;
 
     @Autowired
-    public MathService(ObjectMapper objectMapper, MovementConfig movementConfig, RobotStateService robotStateService) {
-        this.objectMapper = objectMapper;
+    public MathService(MovementConfig movementConfig, RobotStateService robotStateService) {
         this.movementConfig = movementConfig;
         this.robotStateService = robotStateService;
     }
@@ -35,25 +33,20 @@ public class MathService {
      * @param requestedSpeed The desired speed for the move, as a percentage (0-100).
      * @return An array of DriveSegmentDTOs, one for each motor.
      */
-    public DriveSegmentDTO[] calculateDriveSegments(PoseDto endPose, double requestedSpeed) {
+    public DriveSegmentDTO[] calculateDriveSegments(PoseDto endPose, long requestedSpeed) {
         // Get the CURRENT motor positions from the state service. This is the true starting point.
         long[] startMotorPositionsInSteps = robotStateService.getCurrentMotorPositions();
-
-        // --- 1. Inverse Kinematics: Convert Cartesian poses to motor positions (angles/steps) ---
-        // This is a placeholder for your robot's specific inverse kinematics.
-        // For this example, we'll assume a simple mapping:
-        // X -> motor 0, Y -> motor 1, Z -> motor 2
-        double[] startMotorPositions = {startMotorPositionsInSteps[0], startMotorPositionsInSteps[1], startMotorPositionsInSteps[2]};
-        double[] endMotorPositions = {endPose.x(), endPose.y(), endPose.z()};
+        logger.info("Found these current motorPositions: {}", startMotorPositionsInSteps);
 
         // --- 2. Calculate total steps for each motor ---
         long[] totalSteps = new long[3];
         int[] directions = new int[3];
+        long[] endMotorPositionsCartesian = endPose.toArray();
         for (int i = 0; i < 3; i++) {
-            double delta = endMotorPositions[i] - startMotorPositions[i];
-            directions[i] = delta >= 0 ? 1 : -1;
-            // This is where you'd convert units (e.g., mm or degrees) to motor steps
-            totalSteps[i] = Math.round(Math.abs(delta) * 40/9); // Example: 1 degree = 1600/360 steps
+            long delta = coordinateToSteps(endMotorPositionsCartesian[i]) - startMotorPositionsInSteps[i];
+            logger.info("Calculated this delta: {}, from this end step: {} and this start step: {}", delta, coordinateToSteps(endMotorPositionsCartesian[i]), startMotorPositionsInSteps[i]);
+            directions[i] = delta >= 0 ? 0 : 1;
+            totalSteps[i] = Math.abs(delta);
         }
 
         // --- 3. Motion Profiling (Trapezoidal Speed Profile) ---
@@ -63,8 +56,6 @@ public class MathService {
             long accelSteps = (long) (totalSteps[i] * 0.2);
             long decelSteps = (long) (totalSteps[i] * 0.2);
             long uniformSteps = totalSteps[i] - accelSteps - decelSteps;
-
-            int requestedTopSpeed = (int) (movementConfig.getMaxSpeedFrequency() * (requestedSpeed / 100.0));
 
             // --- 4. Speed/Frequency Calculation ---
             // This is a simplified frequency calculation. A real implementation would be more complex.
@@ -99,5 +90,13 @@ public class MathService {
         );
         logger.info("Generated jog command: {}", command);
         return command;
+    }
+
+    public long coordinateToSteps(long steps) {
+        return Math.round(steps * 40.0f / 9.0f);
+    }
+
+    public long stepsToCoordinate(long coordinate) {
+        return Math.round(coordinate * 9.0f / 40.0f);
     }
 }
