@@ -13,9 +13,11 @@ public record TMC2209RegisterPayload(
         int ihold_irun,
         int pwmconf,
         int tpowerdown,
-        int tpwmthrs
+        int tpwmthrs,
+        int sgthrs,
+        int tcoolthrs
 ) {
     public static TMC2209RegisterPayload fromConfig(MotorConfig config) {
-        return new TMC2209RegisterPayload(config.getMotorId(), config.getGconf().toInt(), config.getChopconf().toInt(), config.getIhold_irun().toInt(), config.getPwmconf().toInt(), config.getTpowerdown(), config.getTpwmthrs());
+        return new TMC2209RegisterPayload(config.getMotorId(), config.getGconf(), config.getChopconf(), config.getIhold_irun(), config.getPwmconf(), config.getTpowerdown(), config.getTpwmthrs(), config.getSgthrs(), config.getTcoolthrs());
     }
 }
