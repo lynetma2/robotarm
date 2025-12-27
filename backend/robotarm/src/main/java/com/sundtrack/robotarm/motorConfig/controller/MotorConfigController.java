@@ -1,7 +1,9 @@
 package com.sundtrack.robotarm.motorConfig.controller;
 
+import com.sundtrack.robotarm.motorConfig.dto.MotorConfigDTO;
 import com.sundtrack.robotarm.motorConfig.service.MotorConfigService;
-import com.sundtrack.robotarm.motorConfig.model.MotorConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 public class MotorConfigController {
 
     private final MotorConfigService configService;
+    private static final Logger logger = LoggerFactory.getLogger(MotorConfigController.class);
+
 
     @Autowired
     public MotorConfigController(MotorConfigService configService) {
@@ -22,17 +26,18 @@ public class MotorConfigController {
      * @return The TMC2209Config for the specified motor.
      */
     @GetMapping("/{motorId}")
-    public ResponseEntity<MotorConfig> getConfig(@PathVariable int motorId) {
-        return ResponseEntity.ok(configService.getConfigForMotor(motorId));
+    public ResponseEntity<MotorConfigDTO> getConfig(@PathVariable int motorId) {
+        return ResponseEntity.ok(configService.getConfigDto(motorId));
     }
 
     /**
      * @param motorId The ID of the motor to update.
-     * @param config  The new configuration object.
+     * @param configDto  The new configuration object.
      * @return The saved and synchronized TMC2209Config.
      */
     @PutMapping("/{motorId}")
-    public ResponseEntity<MotorConfig> updateConfig(@PathVariable int motorId, @RequestBody MotorConfig config) {
-        return ResponseEntity.ok(configService.updateAndSyncConfig(motorId, config));
+    public ResponseEntity<MotorConfigDTO> updateConfig(@PathVariable int motorId, @RequestBody MotorConfigDTO configDto) {
+        logger.info("Received request to update config for motor {}, with DTO {}", motorId, configDto);
+        return ResponseEntity.ok(configService.updateConfigFromDto(motorId, configDto));
     }
 }

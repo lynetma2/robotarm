@@ -176,11 +176,11 @@ const getSliderBackground = (val: number, min: number, max: number) => {
         <div class="flex items-center gap-4">
           <input
             type="range"
-            min="-64"
-            max="63"
+            min="0"
+            max="255"
             v-model.number="motor.stallThreshold"
             class="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-muted"
-            :style="{ background: getSliderBackground(motor.stallThreshold, -64, 63) }"
+            :style="{ background: getSliderBackground(motor.stallThreshold, 0, 255) }"
           />
           <div class="px-3 py-1.5 rounded-md font-mono text-sm font-bold bg-muted min-w-[80px] text-center">
             {{ motor.stallThreshold }}

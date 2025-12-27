@@ -1,116 +1,76 @@
 package com.sundtrack.robotarm.motorConfig.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
+@Table(name = "motor_config")
 public class MotorConfig {
 
     @Id
-    private Integer motorId;
+    private Integer id;
 
-    // Default: 452 (en_spreadcycle | pdn_disable | mstep_reg_select | multistep_filt)
-    private int gconf = 452;
+    @Column(nullable = false)
+    private String name;
 
-    // Default: 335609939 (toff=3, hstrt=5, tbl=2, mres=4, intpol=true)
-    private long chopconf = 335609939L;
+    @Column(nullable = false)
+    private boolean enabled;
 
-    // Default: 532240 (ihold=16, irun=31, iholddelay=8)
-    private int ihold_irun = 532240;
+    // GCONF Register (0x00) - Global Configuration
+    @Column(name = "gconf", nullable = false)
+    private Integer gconf = 0x00000000;
 
-    // Default: 331294 (pwm_ofs=30, pwm_grad=14, pwm_freq=1, pwm_autoscale=true)
-    private int pwmconf = 331294;
+    // CHOPCONF Register (0x6C) - Chopper Configuration
+    @Column(name = "chopconf", nullable = false)
+    private Integer chopconf = 0x10000053;
 
-    /**
-     * TPOWERDOWN register: Sets the delay for power-down after standstill. (0-255)
-     */
-    private int tpowerdown = 20;
+    // IHOLD_IRUN Register (0x10) - Current Settings
+    @Column(name = "ihold_irun", nullable = false)
+    private Integer iholdIrun = 0x00001F1F;
 
-    /**
-     * TPWMTHRS register: Velocity threshold for switching to stealthChop.
-     */
-    private int tpwmthrs = 0;
+    // TCOOLTHRS Register (0x14) - CoolStep Threshold
+    @Column(name = "tcoolthrs", nullable = false)
+    private Integer tcoolthrs = 0x00000000;
 
-    /**
-     * SGTHRS register: StallGuard4 threshold (0-255).
-     */
-    private int sgthrs = 0;
+    // SGTHRS Register (0x40) - StallGuard Threshold
+    @Column(name = "sgthrs", nullable = false)
+    private Integer sgthrs = 0x00000000;
 
-    /**
-     * TCOOLTHRS register: CoolStep lower velocity threshold.
-     */
-    private int tcoolthrs = 0;
+    // COOLCONF Register (0x42) - CoolStep Configuration
+    @Column(name = "coolconf", nullable = false)
+    private Integer coolconf = 0x00000000;
+
+    // PWMCONF Register (0x70) - PWM Configuration
+    @Column(name = "pwmconf", nullable = false)
+    private Integer pwmconf = 0xC10D0024;
 
     // Getters and Setters
-    public Integer getMotorId() {
-        return motorId;
-    }
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
 
-    public void setMotorId(Integer motorId) {
-        this.motorId = motorId;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public int getGconf() {
-        return gconf;
-    }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
-    public void setGconf(int gconf) {
-        this.gconf = gconf;
-    }
+    public Integer getGconf() { return gconf; }
+    public void setGconf(Integer gconf) { this.gconf = gconf; }
 
-    public long getChopconf() {
-        return chopconf;
-    }
+    public Integer getChopconf() { return chopconf; }
+    public void setChopconf(Integer chopconf) { this.chopconf = chopconf; }
 
-    public void setChopconf(long chopconf) {
-        this.chopconf = chopconf;
-    }
+    public Integer getIholdIrun() { return iholdIrun; }
+    public void setIholdIrun(Integer iholdIrun) { this.iholdIrun = iholdIrun; }
 
-    public int getIhold_irun() {
-        return ihold_irun;
-    }
+    public Integer getTcoolthrs() { return tcoolthrs; }
+    public void setTcoolthrs(Integer tcoolthrs) { this.tcoolthrs = tcoolthrs; }
 
-    public void setIhold_irun(int ihold_irun) {
-        this.ihold_irun = ihold_irun;
-    }
+    public Integer getSgthrs() { return sgthrs; }
+    public void setSgthrs(Integer sgthrs) { this.sgthrs = sgthrs; }
 
-    public int getPwmconf() {
-        return pwmconf;
-    }
+    public Integer getCoolconf() { return coolconf; }
+    public void setCoolconf(Integer coolconf) { this.coolconf = coolconf; }
 
-    public void setPwmconf(int pwmconf) {
-        this.pwmconf = pwmconf;
-    }
-
-    public int getTpowerdown() {
-        return tpowerdown;
-    }
-
-    public void setTpowerdown(int tpowerdown) {
-        this.tpowerdown = tpowerdown;
-    }
-
-    public int getTpwmthrs() {
-        return tpwmthrs;
-    }
-
-    public void setTpwmthrs(int tpwmthrs) {
-        this.tpwmthrs = tpwmthrs;
-    }
-
-    public int getSgthrs() {
-        return sgthrs;
-    }
-
-    public void setSgthrs(int sgthrs) {
-        this.sgthrs = sgthrs;
-    }
-
-    public int getTcoolthrs() {
-        return tcoolthrs;
-    }
-
-    public void setTcoolthrs(int tcoolthrs) {
-        this.tcoolthrs = tcoolthrs;
-    }
+    public Integer getPwmconf() { return pwmconf; }
+    public void setPwmconf(Integer pwmconf) { this.pwmconf = pwmconf; }
 }

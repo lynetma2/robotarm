@@ -1,20 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Settings, Save } from 'lucide-vue-next'
+import { ref, onMounted } from 'vue'
+import { Settings, Save, Loader2, AlertCircle } from 'lucide-vue-next'
 import { Button } from '@/shared/ui/button'
 import { MotorCard, useMotorConfig } from '@/entities/motor'
 
-const { motorConfigs, resetMotor, hasChanges, markAsSaved } = useMotorConfig()
+const { motorConfigs, resetMotor, hasChanges, fetchConfigs, saveConfigs, isLoading, error } = useMotorConfig()
 const expandedMotor = ref<number | null>(null)
+
+onMounted(() => {
+  fetchConfigs()
+})
 
 const toggleExpanded = (id: number) => {
   expandedMotor.value = expandedMotor.value === id ? null : id
 }
 
-const handleSave = () => {
-  console.log('Saving configuration:', motorConfigs.value)
-  // Implement API call here
-  markAsSaved()
+const handleSave = async () => {
+  await saveConfigs()
 }
 </script>
 
@@ -29,6 +31,10 @@ const handleSave = () => {
         <div>
           <h1 class="text-2xl font-bold tracking-tight">TMC2209 Configuration</h1>
           <p class="text-muted-foreground">Manage all 6 stepper motor drivers</p>
+          <div v-if="error" class="mt-2 flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle class="w-4 h-4" />
+            {{ error }}
+          </div>
         </div>
       </div>
 
@@ -41,9 +47,10 @@ const handleSave = () => {
           Unsaved Changes
         </div>
 
-        <Button class="gap-2 shadow-sm" @click="handleSave">
-          <Save class="w-4 h-4" />
-          Save Configuration
+        <Button class="gap-2 shadow-sm" @click="handleSave" :disabled="isLoading">
+          <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin" />
+          <Save v-else class="w-4 h-4" />
+          {{ isLoading ? 'Saving...' : 'Save Configuration' }}
         </Button>
       </div>
     </div>
