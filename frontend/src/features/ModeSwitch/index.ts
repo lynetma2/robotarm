@@ -1,1 +1,1 @@
-export { default as ModeSwitch } from "./ui/ModeSwitch.vue"
+export { default as ModeSwitch } from './ui/ModeSwitch.vue'

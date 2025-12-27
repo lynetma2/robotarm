@@ -1,29 +1,26 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import MotorConfigPage from "@/pages/motorConfigPage.vue";
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
-// Lazy load pages
-const DashboardPage = () => import('@/pages/dashboard/DashboardPage.vue')
-const EditorPage = () => import('@/pages/editor/EditorPage.vue')
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    name: 'Dashboard',
+    component: () => import('@/pages/dashboard/DashboardPage.vue'),
+  },
+  {
+    path: '/editor',
+    name: 'Editor',
+    component: () => import('@/pages/editor/EditorPage.vue'),
+  },
+  {
+    path: '/motorConfig',
+    name: 'MotorConfig',
+    component: () => import('@/pages/motorConfigPage.vue'),
+  },
+]
 
 const router = createRouter({
-  history: createWebHistory(),
-  routes: [
-    {
-      path: '/',
-      name: 'Dashboard',
-      component: DashboardPage
-    },
-    {
-      path: '/editor',
-      name: 'Editor',
-      component: EditorPage
-    },
-    {
-      path: '/motorConfig',
-      name: 'MotorConfig',
-      component: MotorConfigPage
-    }
-  ]
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes,
 })
 
 export default router

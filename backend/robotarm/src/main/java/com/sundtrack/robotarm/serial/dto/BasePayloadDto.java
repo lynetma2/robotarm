@@ -11,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = TelemetryPayloadDto.class, name = "telemetry"),
         @JsonSubTypes.Type(value = LogPayloadDto.class, name = "log"),
-        @JsonSubTypes.Type(value = LogPayloadDto.class, name = "motormoving")
+        @JsonSubTypes.Type(value = MotorMovingPayloadDto.class, name = "motormoving"),
+        @JsonSubTypes.Type(value = AckPayloadDto.class, name = "ack")
 })
 public interface BasePayloadDto {}
