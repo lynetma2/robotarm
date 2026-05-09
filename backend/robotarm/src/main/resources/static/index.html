@@ -1,154 +1,553 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>ESP32 Serial Relay</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <meta charset="UTF-8">
+    <title>Motor Controller</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 20px; }
-        #messages {
-            width: 500px;
-            height: 300px;
-            border: 1px solid #ccc;
-            background: #fff;
-            padding: 10px;
-            overflow-y: scroll;
-            margin-top: 10px;
-            margin-bottom: 10px;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #0d0f12;
+            --surface:   #13161b;
+            --border:    #1f242c;
+            --accent:    #00e5a0;
+            --accent2:   #0077ff;
+            --warn:      #ff6b35;
+            --text:      #c9d1d9;
+            --muted:     #4a5568;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-ui:   'Syne', sans-serif;
         }
-        .msg {
-            padding: 5px;
-            border-bottom: 1px solid #eee;
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            min-height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            grid-template-columns: 340px 1fr;
+            grid-template-areas:
+                "header header"
+                "sidebar main";
         }
-        .msg-out {
-            color: #007bff; /* Blue for outgoing */
-        }
-        .msg-in {
-            color: #333; /* Black for incoming */
-        }
-        #send-form {
+
+        /* ── Header ── */
+        header {
+            grid-area: header;
+            border-bottom: 1px solid var(--border);
+            padding: 14px 28px;
             display: flex;
-            width: 510px;
+            align-items: center;
+            gap: 20px;
+            background: var(--surface);
         }
-        #command-input {
-            flex-grow: 1;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px 0 0 4px;
+
+        header h1 {
+            font-family: var(--font-ui);
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #fff;
         }
-        #send-button {
-            padding: 8px 12px;
-            background: #007bff;
-            color: white;
-            border: 1px solid #007bff;
-            border-radius: 0 4px 4px 0;
+
+        header h1 span { color: var(--accent); }
+
+        #status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+            transition: background .3s;
+            flex-shrink: 0;
+        }
+        #status-dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        #status-dot.error     { background: var(--warn);   box-shadow: 0 0 8px var(--warn); }
+
+        #status-text {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: .5px;
+        }
+
+        .header-actions { margin-left: auto; display: flex; gap: 10px; }
+
+        button {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: 7px 16px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
             cursor: pointer;
+            transition: all .15s;
+            letter-spacing: .3px;
         }
-        #send-button:hover {
-            background: #0056b3;
+        button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+        button:disabled { opacity: .35; cursor: not-allowed; }
+        button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+            font-weight: 700;
         }
+        button.primary:hover:not(:disabled) { background: #00ffb3; border-color: #00ffb3; color: #000; }
+
+        /* ── Sidebar ── */
+        aside {
+            grid-area: sidebar;
+            border-right: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-section {
+            border-bottom: 1px solid var(--border);
+            padding: 16px;
+        }
+
+        .sidebar-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        /* Command reference */
+        .cmd-list { display: flex; flex-direction: column; gap: 6px; }
+
+        .cmd-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: border-color .15s, background .15s;
+        }
+        .cmd-card:hover { border-color: var(--accent2); background: #0d1520; }
+        .cmd-card:hover .cmd-name { color: var(--accent2); }
+
+        .cmd-name {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 2px;
+            transition: color .15s;
+        }
+
+        .cmd-desc {
+            font-size: 10px;
+            color: var(--muted);
+            line-height: 1.4;
+            margin-bottom: 6px;
+        }
+
+        .cmd-preview {
+            font-size: 9px;
+            color: #5a6478;
+            white-space: pre;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Builder panel */
+        .builder { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+
+        .field-group { display: flex; flex-direction: column; gap: 4px; }
+        .field-label { font-size: 10px; color: var(--muted); letter-spacing: .5px; }
+
+        input[type="number"], input[type="text"], select {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 7px 10px;
+            border-radius: 4px;
+            width: 100%;
+            transition: border-color .15s;
+            outline: none;
+        }
+        input:focus, select:focus { border-color: var(--accent2); }
+
+        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .build-btn { width: 100%; padding: 10px; }
+
+        /* ── Main ── */
+        main {
+            grid-area: main;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Log */
+        #log {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .log-entry {
+            display: grid;
+            grid-template-columns: 140px 20px 1fr;
+            gap: 8px;
+            align-items: baseline;
+            font-size: 12px;
+            padding: 3px 0;
+            border-bottom: 1px solid #0d0f12;
+            animation: fadeIn .2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        .log-ts  { color: var(--muted); font-size: 10px; }
+        .log-dir { text-align: center; font-size: 10px; }
+        .log-dir.out { color: var(--accent2); }
+        .log-dir.in  { color: var(--accent); }
+        .log-dir.sys { color: var(--warn); }
+        .log-body    { color: var(--text); word-break: break-all; line-height: 1.5; }
+        .log-body.out { color: #7ab4ff; }
+        .log-body.in  { color: #b0f4d8; }
+        .log-body.sys { color: #ff9f70; font-style: italic; }
+
+        /* Input bar */
+        .input-bar {
+            border-top: 1px solid var(--border);
+            padding: 14px 20px;
+            display: flex;
+            gap: 10px;
+            background: var(--surface);
+        }
+
+        .input-bar input {
+            flex: 1;
+            font-size: 13px;
+            padding: 10px 14px;
+        }
+
+        .input-bar input::placeholder { color: var(--muted); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     </style>
 </head>
 <body>
-<h2>ESP32 Serial Monitor</h2>
-<div id="status">Connecting...</div>
 
-<div id="messages"></div>
+<header>
+    <div id="status-dot"></div>
+    <h1>Motor <span>Controller</span></h1>
+    <span id="status-text">DISCONNECTED</span>
+    <div class="header-actions">
+        <button id="btn-connect"    onclick="connect()">Connect</button>
+        <button id="btn-disconnect" onclick="disconnect()" disabled>Disconnect</button>
+        <button onclick="clearLog()">Clear</button>
+    </div>
+</header>
 
-<form id="send-form">
-    <input type="text" id="command-input" placeholder="Type command (e.g., G1 X100)"/>
-    <button type="submit" id="send-button">Send</button>
-</form>
+<aside>
+    <!-- Command reference -->
+    <div class="sidebar-section">
+        <div class="sidebar-label">Commands — click to load</div>
+        <div class="cmd-list" id="cmd-list"></div>
+    </div>
+
+    <!-- Builder -->
+    <div class="builder" id="builder">
+        <div class="sidebar-label">Command Builder</div>
+        <div id="builder-fields"></div>
+    </div>
+</aside>
+
+<main>
+    <div id="log"></div>
+
+    <div class="input-bar">
+        <input type="text" id="raw-input" placeholder='{"cmd":"step", ...} or use the builder →' />
+        <button class="primary" id="btn-send" onclick="sendRaw()" disabled>Send</button>
+    </div>
+</main>
 
 <script>
-    let stompClient = null;
-    const messagesDiv = document.getElementById('messages');
-    const statusDiv = document.getElementById('status');
-    const sendForm = document.getElementById('send-form');
-    const commandInput = document.getElementById('command-input');
+    // ─────────────────────────────────────────
+    //  Command definitions
+    // ─────────────────────────────────────────
+    const COMMANDS = [
+        {
+            name: "step",
+            desc: "Move motor(s) with a trapezoidal profile",
+            fields: [
+                { key: "motor_id",      label: "Motor ID",       type: "number", default: 0 },
+                { key: "direction",     label: "Direction (0/1)", type: "number", default: 1 },
+                { key: "accel_steps",   label: "Accel Steps",     type: "number", default: 200 },
+                { key: "uniform_steps", label: "Uniform Steps",   type: "number", default: 1000 },
+                { key: "decel_steps",   label: "Decel Steps",     type: "number", default: 200 },
+                { key: "start_freq",    label: "Start Freq (Hz)", type: "number", default: 100 },
+                { key: "uniform_freq",  label: "Run Freq (Hz)",   type: "number", default: 1000 },
+                { key: "end_freq",      label: "End Freq (Hz)",   type: "number", default: 100 },
+            ],
+            build: (f) => JSON.stringify({
+                seq: nextSeq(),
+                cmd: "step",
+                data: {
+                    segments: [{
+                        motor_id:      parseInt(f.motor_id),
+                        direction:     parseInt(f.direction),
+                        accel_steps:   parseInt(f.accel_steps),
+                        uniform_steps: parseInt(f.uniform_steps),
+                        decel_steps:   parseInt(f.decel_steps),
+                        start_freq:    parseInt(f.start_freq),
+                        uniform_freq:  parseInt(f.uniform_freq),
+                        end_freq:      parseInt(f.end_freq),
+                    }]
+                }
+            })
+        },
+        {
+            name: "settings",
+            desc: "Update TMC2209 register values at runtime",
+            fields: [
+                { key: "motor_id",    label: "Motor ID",           type: "number", default: 0 },
+                { key: "irun",        label: "IRUN (0–31)",         type: "number", default: 23, optional: true },
+                { key: "ihold",       label: "IHOLD (0–31)",        type: "number", default: 3,  optional: true },
+                { key: "iholddelay",  label: "IHOLDDELAY (0–15)",   type: "number", default: 7,  optional: true },
+                { key: "tpwmthrs",    label: "TPWMTHRS",            type: "number", default: 0,  optional: true },
+                { key: "tcoolthrs",   label: "TCOOLTHRS",           type: "number", default: 0,  optional: true },
+                { key: "microsteps",  label: "Microsteps",          type: "select",
+                    options: [256,128,64,32,16,8,4,2,1], default: 256, optional: true },
+            ],
+            build: (f) => {
+                const data = { motor_id: parseInt(f.motor_id) };
+                // Only include fields that are filled in
+                if (f.irun       !== "") data.irun       = parseInt(f.irun);
+                if (f.ihold      !== "") data.ihold      = parseInt(f.ihold);
+                if (f.iholddelay !== "") data.iholddelay = parseInt(f.iholddelay);
+                if (f.tpwmthrs   !== "") data.tpwmthrs   = parseInt(f.tpwmthrs);
+                if (f.tcoolthrs  !== "") data.tcoolthrs  = parseInt(f.tcoolthrs);
+                if (f.microsteps !== "") data.microsteps = parseInt(f.microsteps);
+                return JSON.stringify({ seq: nextSeq(), cmd: "settings", data });
+            }
+        }
+    ];
 
+    // ─────────────────────────────────────────
+    //  State
+    // ─────────────────────────────────────────
+    let stompClient  = null;
+    let seq          = 1;
+    let activeCmd    = null;
+
+    function nextSeq() { return seq++; }
+
+    // ─────────────────────────────────────────
+    //  STOMP
+    // ─────────────────────────────────────────
     function connect() {
-        // Create a new SockJS connection to the endpoint from your config
-        // --- Corrected this line ---
-        var socket = new SockJS('/serial-websocket');
+        const socket = new SockJS('/serial-websocket');
+        stompClient  = Stomp.over(socket);
+        stompClient.debug = null;
 
-        // Create a STOMP client over the SockJS connection
-        stompClient = Stomp.over(socket);
-
-        // Connect to the STOMP broker
-        stompClient.connect({}, function (frame) {
-            statusDiv.innerHTML = 'Connected!';
-            statusDiv.style.color = 'green';
-            console.log('Connected: ' + frame);
-
-            // Subscribe to the "/topic/serial" topic
-            // for INCOMING messages from the serial port
-            stompClient.subscribe('/topic/serial', onMessageReceived);
-        }, onError);
+        stompClient.connect({}, () => {
+            setConnected(true);
+            logEntry("sys", "Connected to /serial-websocket");
+            stompClient.subscribe('/topic/serial', (msg) => {
+                logEntry("in", msg.body);
+            });
+        }, (err) => {
+            setConnected(false);
+            logEntry("sys", "Connection error — retrying in 5s");
+            setTimeout(connect, 5000);
+        });
     }
 
-    function onError(error) {
-        statusDiv.innerHTML = 'Could not connect. Retrying...';
-        statusDiv.style.color = 'red';
-        console.error('STOMP error: ' + error);
-        // Reconnect after 5 seconds
-        setTimeout(connect, 5000);
+    function disconnect() {
+        if (stompClient) stompClient.disconnect();
+        setConnected(false);
+        logEntry("sys", "Disconnected");
     }
 
-    function onMessageReceived(payload) {
-        var message = payload.body;
-
-        // Log incoming message to the console
-        console.log("<< RECEIVED: " + message);
-
-        // Add the message to the monitor div
-        addMessageToMonitor(message, 'msg-in');
+    function setConnected(connected) {
+        const dot  = document.getElementById('status-dot');
+        const txt  = document.getElementById('status-text');
+        dot.className = connected ? 'connected' : '';
+        txt.textContent = connected ? 'CONNECTED' : 'DISCONNECTED';
+        document.getElementById('btn-connect').disabled    = connected;
+        document.getElementById('btn-disconnect').disabled = !connected;
+        document.getElementById('btn-send').disabled       = !connected;
     }
 
-    // --- NEW FUNCTION ---
-    function sendSerialCommand(event) {
-        // Prevent the form from doing a default browser submission
-        event.preventDefault();
+    // ─────────────────────────────────────────
+    //  Send
+    // ─────────────────────────────────────────
+    function sendRaw() {
+        const input = document.getElementById('raw-input');
+        const val   = input.value.trim();
+        if (!val || !stompClient?.connected) return;
+        stompClient.send("/app/serial/write", {}, val);
+        logEntry("out", val);
+        input.value = '';
+    }
 
-        const command = commandInput.value;
-        if (stompClient && stompClient.connected && command.trim().length > 0) {
+    document.getElementById('raw-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendRaw();
+    });
 
-            // Log outgoing command to the console
-            console.log(">> SENDING: " + command);
+    // ─────────────────────────────────────────
+    //  Log
+    // ─────────────────────────────────────────
+    function logEntry(dir, text) {
+        const log  = document.getElementById('log');
+        const ts   = new Date().toLocaleTimeString('en-GB', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit', fractionalSecondDigits: 2 });
+        const row  = document.createElement('div');
+        row.className = 'log-entry';
 
-            // Send the command to the "/app/serial/write" destination
-            // This is handled by your @MessageMapping
-            stompClient.send("/app/serial/write", {}, command);
+        const dirLabel = dir === 'out' ? '▲' : dir === 'in' ? '▼' : '●';
+        row.innerHTML = `
+        <span class="log-ts">${ts}</span>
+        <span class="log-dir ${dir}">${dirLabel}</span>
+        <span class="log-body ${dir}">${escapeHtml(text)}</span>
+    `;
+        log.appendChild(row);
+        log.scrollTop = log.scrollHeight;
+    }
 
-            // Add our own sent message to the monitor
-            addMessageToMonitor(command, 'msg-out');
+    function escapeHtml(str) {
+        return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
 
-            // Clear the input field
-            commandInput.value = '';
+    function clearLog() {
+        document.getElementById('log').innerHTML = '';
+    }
+
+    // ─────────────────────────────────────────
+    //  Sidebar command list
+    // ─────────────────────────────────────────
+    function buildSidebar() {
+        const list = document.getElementById('cmd-list');
+        COMMANDS.forEach((cmd, i) => {
+            const preview = cmd.build(Object.fromEntries(cmd.fields.map(f => [f.key, f.default ?? ''])));
+            const card = document.createElement('div');
+            card.className = 'cmd-card';
+            card.innerHTML = `
+            <div class="cmd-name">${cmd.name}</div>
+            <div class="cmd-desc">${cmd.desc}</div>
+            <div class="cmd-preview">${escapeHtml(preview.slice(0, 80))}…</div>
+        `;
+            card.onclick = () => loadBuilder(i);
+            list.appendChild(card);
+        });
+    }
+
+    // ─────────────────────────────────────────
+    //  Builder
+    // ─────────────────────────────────────────
+    function loadBuilder(cmdIndex) {
+        activeCmd = COMMANDS[cmdIndex];
+        const container = document.getElementById('builder-fields');
+        container.innerHTML = '';
+
+        // Title
+        const title = document.createElement('div');
+        title.className = 'sidebar-label';
+        title.textContent = `Building: ${activeCmd.name}`;
+        container.appendChild(title);
+
+        // Fields — pair them up in rows where possible
+        const fields = activeCmd.fields;
+        let i = 0;
+        while (i < fields.length) {
+            const f = fields[i];
+            const next = fields[i + 1];
+
+            // motor_id always full width; selects full width; otherwise pair
+            if (f.key === 'motor_id' || f.type === 'select' || !next || next.type === 'select') {
+                container.appendChild(makeField(f));
+                i++;
+            } else {
+                const row = document.createElement('div');
+                row.className = 'field-row';
+                row.appendChild(makeField(f));
+                row.appendChild(makeField(next));
+                container.appendChild(row);
+                i += 2;
+            }
+        }
+
+        // Send button
+        const btn = document.createElement('button');
+        btn.className = 'primary build-btn';
+        btn.textContent = `Send ${activeCmd.name}`;
+        btn.onclick = sendBuilt;
+        container.appendChild(btn);
+    }
+
+    function makeField(f) {
+        const group = document.createElement('div');
+        group.className = 'field-group';
+
+        const label = document.createElement('div');
+        label.className = 'field-label';
+        label.textContent = f.label + (f.optional ? ' (opt)' : '');
+        group.appendChild(label);
+
+        let input;
+        if (f.type === 'select') {
+            input = document.createElement('select');
+            f.options.forEach(opt => {
+                const o = document.createElement('option');
+                o.value = opt;
+                o.textContent = opt;
+                if (opt == f.default) o.selected = true;
+                input.appendChild(o);
+            });
         } else {
-            console.warn("Cannot send. STOMP client not connected or message empty.");
+            input = document.createElement('input');
+            input.type = 'number';
+            input.value = f.default ?? '';
+            input.placeholder = f.optional ? 'leave blank to skip' : '';
+        }
+
+        input.id = 'field-' + f.key;
+        group.appendChild(input);
+        return group;
+    }
+
+    function sendBuilt() {
+        if (!activeCmd) return;
+        const values = {};
+        activeCmd.fields.forEach(f => {
+            const el = document.getElementById('field-' + f.key);
+            values[f.key] = el ? el.value : '';
+        });
+
+        const json = activeCmd.build(values);
+        document.getElementById('raw-input').value = json;
+
+        if (stompClient?.connected) {
+            sendRaw();
+        } else {
+            logEntry("sys", "Not connected — command loaded into input field");
         }
     }
 
-    // --- NEW HELPER FUNCTION ---
-    // Adds a message to the monitor div with a specific style
-    function addMessageToMonitor(text, cssClass) {
-        var msgElement = document.createElement('div');
-        msgElement.classList.add('msg', cssClass); // Add 'msg' and the specific class
-
-        // Add a prefix to distinguish in/out
-        const prefix = (cssClass === 'msg-out' ? '>> ' : '<< ');
-        msgElement.textContent = prefix + text;
-
-        messagesDiv.prepend(msgElement);
-    }
-
-    // --- NEW EVENT LISTENER ---
-    // Listen for the form 'submit' event (click or 'Enter' key)
-    sendForm.addEventListener('submit', sendSerialCommand);
-
-    // Start the connection
-    connect();
+    // ─────────────────────────────────────────
+    //  Init
+    // ─────────────────────────────────────────
+    buildSidebar();
+    loadBuilder(0); // default to "step"
 </script>
 </body>
 </html>
