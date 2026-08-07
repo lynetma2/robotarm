@@ -12,6 +12,8 @@
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_system.h"
+#include "tmc2209_dev.h"
+#include "driver/uart.h"
 
 void app_main(void)
 {
@@ -41,6 +43,33 @@ void app_main(void)
            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
+
+    // 1. Initialize the UART bus once
+    tmc2209_bus_config_t bus = {
+        .uart_port = UART_NUM_1,
+        .tx_pin = 17,
+        .rx_pin = 16,
+        .baud_rate = 115200,
+        .discard_echo = true,
+        .timeout_ms = 20,
+    };
+    ESP_ERROR_CHECK(tmc2209_init_bus(&bus));
+
+    // 2. Initialize one motor
+    tmc2209_dev_t motor;
+    tmc2209_config_t cfg = {
+        .uart_port = UART_NUM_1,
+        .ic_id = 0,
+        .r_sense_mohm = 110,
+        .node_address = 0,
+    };
+    ESP_ERROR_CHECK(tmc2209_init(&motor, &cfg));
+
+    // 3. Configure it
+    ESP_ERROR_CHECK(tmc2209_set_run_current(&motor, 1000));
+    ESP_ERROR_CHECK(tmc2209_set_microsteps(&motor, 16));
+
+    printf("TMC2209 component is working!\n");
 
     for (int i = 10; i >= 0; i--) {
         printf("Restarting in %d seconds...\n", i);
