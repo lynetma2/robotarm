@@ -9,6 +9,7 @@
 #include "tmc2209_dev.h"
 #include "app_buttons.h"
 #include "motor_tests.h"
+#include "pot.h"
 
 static const char *TAG = "TMC_TEST";
 
@@ -462,5 +463,45 @@ void motor_test_jog(void)
     // Keep the task alive. The button library's internal task handles the callbacks.
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+// ============================================================
+// POTENTIOMETER SMOKE TEST
+// Prints raw ADC counts, calibrated millivolts, and the
+// normalized 0.0..1.0 value while you turn the knob.
+// ============================================================
+void motor_test_pot(void)
+{
+    // GPIO 9 = ADC1_CHANNEL_8
+    pot_config_t pot_cfg = {
+        .unit = ADC_UNIT_1,
+        .channel = ADC_CHANNEL_8,
+        .samples = 8,   // average 8 readings per call for a stable value
+    };
+
+    pot_t *pot = NULL;
+    esp_err_t err = pot_create(&pot_cfg, &pot);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create potentiometer: %s", esp_err_to_name(err));
+        return;
+    }
+
+    ESP_LOGI(TAG, "Potentiometer test running - turn the knob!");
+    ESP_LOGI(TAG, "Watching for: raw ~0..4095, mV ~0..3100, normalized 0.0..1.0");
+
+    while (1) {
+        int raw = 0;
+        int mv = 0;
+        float normalized = 0.0f;
+
+        // Read all three levels
+        pot_read_raw(pot, &raw);
+        pot_read_mv(pot, &mv);
+        pot_read(pot, &normalized);
+
+        ESP_LOGI(TAG, "raw: %4d | mV: %5d | normalized: %.3f", raw, mv, (double)normalized);
+
+        vTaskDelay(pdMS_TO_TICKS(200));   // print ~5 times per second
     }
 }

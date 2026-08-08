@@ -44,5 +44,6 @@ void app_main(void)
     // motor_test_ramp();
     // motor_test_stepdir();
     // motor_test_buttons();
-    motor_test_jog();
+    // motor_test_jog();
+    motor_test_pot();
 }
