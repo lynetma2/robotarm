@@ -8,6 +8,7 @@
 #include "tmc2209_port.h"
 #include "TMC2209.h"        // The vendor header (Layer 1)
 #include "esp_log.h"
+#include "driver/gpio.h"
 
 static const char *TAG = "tmc2209_dev";
 
@@ -105,13 +106,26 @@ esp_err_t tmc2209_init(tmc2209_dev_t *dev, const tmc2209_config_t *config)
         return ESP_ERR_INVALID_ARG;
     }
 
-    // 1. Copy configuration into the device struct
+    // Copy configuration into the device struct
     dev->uart_port = config->uart_port;
     dev->ic_id = config->ic_id;
     dev->r_sense_mohm = config->r_sense_mohm;
     dev->node_address = config->node_address;
+    dev->enable_gpio = config->enable_gpio;
+    dev->enable_active_high = config->enable_active_high;
+    dev->stepdir_cfg = config->stepdir;
 
-    // 2. Create the mutex to protect UART access for this specific motor
+    // Configure ENN pin if provided, and start DISABLED for safety
+    if (dev->enable_gpio >= 0) {
+        esp_err_t err = gpio_set_direction((gpio_num_t)dev->enable_gpio, GPIO_MODE_OUTPUT);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to configure enable GPIO %d", dev->enable_gpio);
+            return err;
+        }
+        tmc2209_set_enabled(dev, false);  // safe default: outputs off
+    }
+
+    // Create the mutex to protect UART access for this specific motor
     if (dev->mutex == NULL) {
         dev->mutex = xSemaphoreCreateMutex();
         if (dev->mutex == NULL) {
@@ -120,7 +134,7 @@ esp_err_t tmc2209_init(tmc2209_dev_t *dev, const tmc2209_config_t *config)
         }
     }
 
-    // 3. Register this icID, uart_port, and node_address with the port layer
+    // Register this icID, uart_port, and node_address with the port layer
     esp_err_t err = tmc2209_port_register(config->ic_id, config->uart_port, config->node_address);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register driver with port layer");
@@ -139,10 +153,16 @@ esp_err_t tmc2209_deinit(tmc2209_dev_t *dev)
         return ESP_ERR_INVALID_ARG;
     }
 
-    // 1. Unregister from the port layer (ic_id is unique, so we don't need to pass uart_port)
+    // Disable the driver
+    tmc2209_set_enabled(dev, false);
+
+    // Deinit the step dir engine
+    tmc2209_stepdir_deinit(dev);
+
+    // Unregister from the port layer (ic_id is unique, so we don't need to pass uart_port)
     tmc2209_port_unregister(dev->ic_id);
 
-    // 2. Free the mutex
+    // Free the mutex
     if (dev->mutex != NULL) {
         vSemaphoreDelete(dev->mutex);
         dev->mutex = NULL; // Set to NULL to allow safe re-initialization later
@@ -151,6 +171,32 @@ esp_err_t tmc2209_deinit(tmc2209_dev_t *dev)
     ESP_LOGI(TAG, "Deinitialized TMC2209 (icID=%u, uart=%d)", dev->ic_id, dev->uart_port);
 
     return ESP_OK;
+}
+
+// ============================================================
+// Driver Enable (ENN pin)
+// ============================================================
+
+esp_err_t tmc2209_set_enabled(tmc2209_dev_t *dev, bool enabled)
+{
+    if (dev == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // No EN pin wired: nothing to do
+    if (dev->enable_gpio < 0) {
+        return ESP_OK;
+    }
+
+    // Translate the semantic "enabled" into the electrical level
+    int level;
+    if (dev->enable_active_high) {
+        level = enabled ? 1 : 0;
+    } else {
+        level = enabled ? 0 : 1;   // TMC2209 ENN is active-low
+    }
+
+    return gpio_set_level((gpio_num_t)dev->enable_gpio, (uint32_t)level);
 }
 
 // ============================================================
