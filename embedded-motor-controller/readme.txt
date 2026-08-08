@@ -1,1 +1,0 @@
-PRoject for the ESP32 codebase.

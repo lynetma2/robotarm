@@ -1,0 +1,15 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "ESP32-S3 Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "IDF_TARGET": "esp32s3",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ]
+}

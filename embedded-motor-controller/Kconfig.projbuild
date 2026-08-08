@@ -1,5 +1,0 @@
-main_menu "Project Build Configuration"
-
-    rsource "main/Kconfig"
-
-endmenu
