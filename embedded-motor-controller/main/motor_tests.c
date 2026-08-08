@@ -505,3 +505,148 @@ void motor_test_pot(void)
         vTaskDelay(pdMS_TO_TICKS(200));   // print ~5 times per second
     }
 }
+
+// ============================================================
+// JOG TEST: POTENTIOMETER SPEED + RAMPING
+// Hold Btn2 = clockwise, Btn3 = counter-clockwise.
+// Pot sets target speed (100..20000 µsteps/s). Motor ramps up/down.
+// ============================================================
+
+#define JOG_MIN_SPEED    100      // µsteps/sec at pot minimum
+#define JOG_MAX_SPEED    20000    // µsteps/sec at pot maximum
+#define JOG_ACCEL        100000   // µsteps/sec^2 ramp rate
+#define JOG_TASK_TICK_MS 10       // ramp update interval
+
+static volatile bool s_jog_btn2_held = false;
+static volatile bool s_jog_btn3_held = false;
+
+static int32_t pot_to_jog_speed(float f)
+{
+    if (f < 0.0f) f = 0.0f;
+    if (f > 1.0f) f = 1.0f;
+    return JOG_MIN_SPEED + (int32_t)(f * (float)(JOG_MAX_SPEED - JOG_MIN_SPEED));
+}
+
+// --- Button callbacks: track held state ---
+static void jog_btn2_down(void *arg, void *data) { s_jog_btn2_held = true;  }
+static void jog_btn2_up(void *arg, void *data)   { s_jog_btn2_held = false; }
+static void jog_btn3_down(void *arg, void *data) { s_jog_btn3_held = true;  }
+static void jog_btn3_up(void *arg, void *data)   { s_jog_btn3_held = false; }
+
+// --- The ramp loop ---
+static void jog_task(void *arg)
+{
+    tmc2209_dev_t *motor = (tmc2209_dev_t *)arg;
+    pot_t *pot = NULL;
+
+    pot_config_t pot_cfg = {
+        .unit = ADC_UNIT_1,
+        .channel = ADC_CHANNEL_8,   // GPIO 9
+        .samples = 8,
+    };
+    if (pot_create(&pot_cfg, &pot) != ESP_OK) {
+        ESP_LOGE(TAG, "Jog task: failed to create potentiometer");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    int32_t current_speed = 0;   // signed speed actually applied to the motor
+    bool running = false;
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(JOG_TASK_TICK_MS));
+        float dt = (float)JOG_TASK_TICK_MS / 1000.0f;
+
+        // 1. Target direction from held buttons
+        int target_dir = 0;
+        if (s_jog_btn2_held && !s_jog_btn3_held)       target_dir = 1;   // clockwise
+        else if (s_jog_btn3_held && !s_jog_btn2_held)  target_dir = -1;  // counter-clockwise
+
+        // 2. Target signed speed from the pot
+        int32_t target_speed = 0;
+        if (target_dir != 0) {
+            float f = 0.0f;
+            if (pot_read(pot, &f) == ESP_OK) {
+                target_speed = target_dir * pot_to_jog_speed(f);
+            }
+        }
+
+        // 3. Ramp current speed toward target speed
+        int32_t ramp_step = (int32_t)(JOG_ACCEL * dt);
+        if (current_speed < target_speed) {
+            current_speed += ramp_step;
+            if (current_speed > target_speed) current_speed = target_speed;
+        } else if (current_speed > target_speed) {
+            current_speed -= ramp_step;
+            if (current_speed < target_speed) current_speed = target_speed;
+        }
+
+        // 4. Apply to the motor
+        if (current_speed == 0) {
+            if (running) {
+                tmc2209_stop_internal_motion(motor);
+                running = false;
+            }
+        } else {
+            tmc2209_set_internal_velocity(motor, current_speed);
+            if (!running) {
+                tmc2209_start_internal_motion(motor);
+                running = true;
+            }
+        }
+    }
+}
+
+void motor_test_jog_pot(void)
+{
+    // 1. UART bus
+    tmc2209_bus_config_t bus_cfg = {
+        .uart_port = UART_NUM_2,
+        .tx_pin = 8,
+        .rx_pin = 7,
+        .baud_rate = 115200,
+        .discard_echo = true,
+        .timeout_ms = 20,
+    };
+    ESP_ERROR_CHECK(tmc2209_init_bus(&bus_cfg));
+
+    // 2. Motor
+    tmc2209_dev_t motor = {0};
+    tmc2209_config_t motor_cfg = {
+        .uart_port = UART_NUM_2,
+        .ic_id = 0,
+        .r_sense_mohm = 110,
+        .node_address = 0,
+        .enable_gpio = 4,
+        .stepdir = {
+            .enabled = true,
+            .step_gpio = 1,
+            .dir_gpio = 2,
+        },
+    };
+    ESP_ERROR_CHECK(tmc2209_init(&motor, &motor_cfg));
+
+    // 3. Motor config
+    ESP_LOGI(TAG, "Setting jog defaults...");
+    tmc2209_set_run_current(&motor, 800);
+    tmc2209_set_hold_current(&motor, 400);
+    tmc2209_set_microsteps(&motor, 16);
+    tmc2209_set_stealthchop(&motor, true);
+    tmc2209_set_enabled(&motor, true);
+
+    // 4. Buttons
+    ESP_ERROR_CHECK(app_buttons_init());
+    app_buttons_register_cb(APP_BTN_2, BUTTON_PRESS_DOWN, jog_btn2_down, NULL);
+    app_buttons_register_cb(APP_BTN_2, BUTTON_PRESS_UP,   jog_btn2_up,   NULL);
+    app_buttons_register_cb(APP_BTN_3, BUTTON_PRESS_DOWN, jog_btn3_down, NULL);
+    app_buttons_register_cb(APP_BTN_3, BUTTON_PRESS_UP,   jog_btn3_up,   NULL);
+
+    // 5. Launch the jog task
+    xTaskCreate(jog_task, "jog_task", 4096, &motor, 5, NULL);
+
+    ESP_LOGI(TAG, "Jog test running. Hold Btn2 (CW) / Btn3 (CCW), turn pot for speed.");
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}

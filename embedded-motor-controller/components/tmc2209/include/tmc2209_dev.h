@@ -86,6 +86,7 @@ typedef struct {
     uint16_t r_sense_mohm;
     uint8_t node_address;
     int32_t internal_velocity;      // Stored velocity for internal motion
+    bool internal_running;
     int enable_gpio;
     bool enable_active_high;
     tmc2209_stepdir_config_t stepdir_cfg;

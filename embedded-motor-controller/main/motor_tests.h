@@ -11,3 +11,4 @@ void motor_test_stepdir(void);
 void motor_test_buttons(void);
 void motor_test_jog(void);
 void motor_test_pot(void);
+void motor_test_jog_pot(void);
