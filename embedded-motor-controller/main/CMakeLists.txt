@@ -1,5 +1,13 @@
-idf_component_register(SRCS "hello_world_main.c"
-                       PRIV_REQUIRES spi_flash esp_driver_gpio
-                       INCLUDE_DIRS ""
-                       REQUIRES tmc2209 button
+idf_component_register(SRCS
+                            "hello_world_main.c"
+                            "motor_tests.c"
+                            "app_buttons.c"
+                       PRIV_REQUIRES
+                            spi_flash
+                            esp_driver_gpio
+                       INCLUDE_DIRS
+                            ""
+                       REQUIRES
+                            tmc2209
+                            button
 )
