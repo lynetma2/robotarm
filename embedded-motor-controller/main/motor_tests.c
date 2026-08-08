@@ -351,3 +351,111 @@ void motor_test_stepdir()
     ESP_LOGI(TAG, "Step/dir test complete.");
     tmc2209_stepdir_deinit(&motor);
 }
+
+// ============================================================
+// JOG CONFIGURATION
+// Change this value to adjust the jogging speed (microsteps/sec)
+// ============================================================
+#define JOG_VELOCITY 5000
+
+// --- State tracking for jog buttons ---
+static bool s_btn2_held = false;
+static bool s_btn3_held = false;
+static tmc2209_dev_t *s_motor_ptr = NULL;
+
+// --- Helper to determine motor state based on buttons ---
+static void update_jog_state(void)
+{
+    if (s_motor_ptr == NULL) return;
+
+    if (s_btn2_held && !s_btn3_held) {
+        // Only Button 2 is held -> Clockwise
+        tmc2209_set_internal_velocity(s_motor_ptr, JOG_VELOCITY);
+        tmc2209_start_internal_motion(s_motor_ptr);
+    }
+    else if (s_btn3_held && !s_btn2_held) {
+        // Only Button 3 is held -> Counter-Clockwise
+        tmc2209_set_internal_velocity(s_motor_ptr, -JOG_VELOCITY);
+        tmc2209_start_internal_motion(s_motor_ptr);
+    }
+    else {
+        // Neither pressed, OR both pressed -> Stop (safety)
+        tmc2209_stop_internal_motion(s_motor_ptr);
+    }
+}
+
+// --- Button Callbacks ---
+static void on_jog_btn2_down(void *arg, void *data) {
+    s_btn2_held = true;
+    update_jog_state();
+}
+static void on_jog_btn2_up(void *arg, void *data) {
+    s_btn2_held = false;
+    update_jog_state();
+}
+static void on_jog_btn3_down(void *arg, void *data) {
+    s_btn3_held = true;
+    update_jog_state();
+}
+static void on_jog_btn3_up(void *arg, void *data) {
+    s_btn3_held = false;
+    update_jog_state();
+}
+
+// ============================================================
+// JOG TEST FUNCTION
+// ============================================================
+void motor_test_jog(void)
+{
+    // 1. Setup UART Bus
+    tmc2209_bus_config_t bus_cfg = {
+        .uart_port = UART_NUM_2,
+        .tx_pin = 8,
+        .rx_pin = 7,
+        .baud_rate = 115200,
+        .discard_echo = true,
+        .timeout_ms = 20,
+    };
+    ESP_ERROR_CHECK(tmc2209_init_bus(&bus_cfg));
+
+    // 2. Setup Motor Instance
+    tmc2209_dev_t motor = {0};
+    tmc2209_config_t motor_cfg = {
+        .uart_port = UART_NUM_2,
+        .ic_id = 0,
+        .r_sense_mohm = 110,
+        .node_address = 0,
+        .enable_gpio = 4,
+    };
+    ESP_ERROR_CHECK(tmc2209_init(&motor, &motor_cfg));
+
+    // 3. Configure Motor
+    ESP_LOGI(TAG, "Setting jog defaults...");
+    tmc2209_set_run_current(&motor, 800);
+    tmc2209_set_hold_current(&motor, 400);
+    tmc2209_set_microsteps(&motor, 16);
+    tmc2209_set_stealthchop(&motor, true);
+
+    // Enable the motor driver outputs
+    tmc2209_set_enabled(&motor, true);
+
+    // 4. Initialize Buttons and link to motor
+    ESP_ERROR_CHECK(app_buttons_init());
+
+    // Save a pointer to the motor so the button callbacks can access it
+    s_motor_ptr = &motor;
+
+    // Register the jog callbacks for Button 2 and Button 3
+    app_buttons_register_cb(APP_BTN_2, BUTTON_PRESS_DOWN, on_jog_btn2_down, NULL);
+    app_buttons_register_cb(APP_BTN_2, BUTTON_PRESS_UP,   on_jog_btn2_up,   NULL);
+
+    app_buttons_register_cb(APP_BTN_3, BUTTON_PRESS_DOWN, on_jog_btn3_down, NULL);
+    app_buttons_register_cb(APP_BTN_3, BUTTON_PRESS_UP,   on_jog_btn3_up,   NULL);
+
+    ESP_LOGI(TAG, "Jog test running. Hold Btn 2 (CW) or Btn 3 (CCW).");
+
+    // Keep the task alive. The button library's internal task handles the callbacks.
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
