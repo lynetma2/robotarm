@@ -310,8 +310,8 @@ void motor_test_stepdir()
         .node_address = 0,
         .enable_gpio = 4,
         .stepdir = {
-            .step_gpio = 5,   // Wire TMC2209 STEP pin to GPIO 5
-            .dir_gpio = 6,    // Wire TMC2209 DIR pin to GPIO 6
+            .step_gpio = 1,   // Wire TMC2209 STEP pin to GPIO 1
+            .dir_gpio = 2,    // Wire TMC2209 DIR pin to GPIO 2
         },
     };
     ESP_ERROR_CHECK(tmc2209_init(&motor, &motor_cfg));
