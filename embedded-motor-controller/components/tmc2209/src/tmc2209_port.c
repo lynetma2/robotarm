@@ -76,6 +76,10 @@ static bool uart_drain_bytes(uart_port_t port, size_t length, TickType_t timeout
             return false;
         }
 
+        // TEMP DEBUG: show what we received as "echo"
+        ESP_LOGI(TAG, "Echo bytes:");
+        ESP_LOG_BUFFER_HEX(TAG, dummy, read_count);
+
         length -= (size_t)read_count;
     }
 
@@ -358,10 +362,27 @@ bool tmc2209_readWriteUART(
     }
 
     // --- ECHO DISCARD PHASE ---
+    // <--- DEBUG ADDED: Inline echo reading so we can log it
     if (success && bus->discard_echo && writeLength > 0) {
-        if (!uart_drain_bytes(port, writeLength, timeout)) {
-            ESP_LOGE(TAG, "readWriteUART: timeout discarding echo on UART%d", port);
-            success = false;
+        uint8_t echo_buf[16] = {0}; // Max write size for TMC2209 is 4 bytes, 16 is plenty
+        size_t echo_remaining = writeLength;
+        size_t echo_idx = 0;
+
+        while (echo_remaining > 0 && success) {
+            int read_count = uart_read_bytes(port, &echo_buf[echo_idx], echo_remaining, timeout);
+
+            if (read_count <= 0) {
+                ESP_LOGE(TAG, "readWriteUART: timeout discarding echo on UART%d", port);
+                success = false;
+            } else {
+                echo_remaining -= (size_t)read_count;
+                echo_idx += (size_t)read_count;
+            }
+        }
+
+        if (success) {
+            ESP_LOGI(TAG, "Echo received (%d bytes):", (int)echo_idx);
+            ESP_LOG_BUFFER_HEX(TAG, echo_buf, echo_idx);
         }
     }
 
