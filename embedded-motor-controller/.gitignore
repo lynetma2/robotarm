@@ -1,0 +1,15 @@
+# Build outputs
+build/
+cmake-build-*/
+
+# ESP-IDF generated files
+sdkconfig.old
+**/sdkconfig.old
+
+# Downloaded dependencies (DO NOT COMMIT)
+**/managed_components/
+
+# CLion/IDE specific files
+.idea/
+*.cmake
+CMakeLists.txt.user
