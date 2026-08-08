@@ -60,6 +60,28 @@ static uint8_t calculate_irun(uint32_t current_ma, uint16_t r_sense_mohm, bool *
     return (uint8_t)cs;
 }
 
+/**
+ * @brief Claim STEP/DIR pins and hold them at a safe idle level.
+ *
+ * A floating STEP pin causes phantom steps whenever VACTUAL == 0,
+ * so the library owns these pins from init time, even when the
+ * RMT pulse engine is not running.
+ */
+static void stepdir_pins_idle(const tmc2209_dev_t *dev)
+{
+    if (!dev->stepdir_cfg.enabled) {
+        return;
+    }
+    if (dev->stepdir_cfg.step_gpio >= 0) {
+        gpio_set_direction((gpio_num_t)dev->stepdir_cfg.step_gpio, GPIO_MODE_OUTPUT);
+        gpio_set_level((gpio_num_t)dev->stepdir_cfg.step_gpio, 0);
+    }
+    if (dev->stepdir_cfg.dir_gpio >= 0) {
+        gpio_set_direction((gpio_num_t)dev->stepdir_cfg.dir_gpio, GPIO_MODE_OUTPUT);
+        gpio_set_level((gpio_num_t)dev->stepdir_cfg.dir_gpio, 0);
+    }
+}
+
 // ============================================================
 // Internal Helpers: Microstep Conversion
 // ============================================================
@@ -115,6 +137,9 @@ esp_err_t tmc2209_init(tmc2209_dev_t *dev, const tmc2209_config_t *config)
     dev->enable_active_high = config->enable_active_high;
     dev->stepdir_cfg = config->stepdir;
 
+    // Hold STEP/DIR at a safe idle level so they can never float
+    stepdir_pins_idle(dev);
+
     // Configure ENN pin if provided, and start DISABLED for safety
     if (dev->enable_gpio >= 0) {
         esp_err_t err = gpio_set_direction((gpio_num_t)dev->enable_gpio, GPIO_MODE_OUTPUT);
@@ -158,6 +183,8 @@ esp_err_t tmc2209_deinit(tmc2209_dev_t *dev)
 
     // Deinit the step dir engine
     tmc2209_stepdir_deinit(dev);
+
+    stepdir_pins_idle(dev);
 
     // Unregister from the port layer (ic_id is unique, so we don't need to pass uart_port)
     tmc2209_port_unregister(dev->ic_id);

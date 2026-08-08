@@ -426,6 +426,11 @@ void motor_test_jog(void)
         .r_sense_mohm = 110,
         .node_address = 0,
         .enable_gpio = 4,
+        .stepdir = {
+            .enabled   = true, // let the library hold STEP/DIR low,
+            .step_gpio = 1,
+            .dir_gpio  = 2,
+        },
     };
     ESP_ERROR_CHECK(tmc2209_init(&motor, &motor_cfg));
 

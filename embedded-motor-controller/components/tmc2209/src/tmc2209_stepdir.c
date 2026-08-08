@@ -169,6 +169,10 @@ esp_err_t tmc2209_stepdir_init(tmc2209_dev_t *dev)
         ESP_LOGW(TAG, "stepdir already initialized");
         return ESP_OK;
     }
+    if (!dev->stepdir_cfg.enabled) {
+        ESP_LOGE(TAG, "stepdir not enabled in tmc2209_config_t");
+        return ESP_ERR_INVALID_STATE;
+    }
 
     const tmc2209_stepdir_config_t *cfg = &dev->stepdir_cfg;
     if (cfg->step_gpio < 0 || cfg->dir_gpio < 0) {
