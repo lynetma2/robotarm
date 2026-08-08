@@ -46,6 +46,7 @@ esp_err_t tmc2209_deinit_bus(void);
  * @brief Step/Dir pin configuration. Set both to -1 if not used.
  */
 typedef struct {
+    bool enabled;             // false (default) = STEP/DIR pins not used
     int step_gpio;            // GPIO wired to the TMC2209 STEP pin
     int dir_gpio;             // GPIO wired to the TMC2209 DIR pin
 } tmc2209_stepdir_config_t;
@@ -85,6 +86,7 @@ typedef struct {
     uint16_t r_sense_mohm;
     uint8_t node_address;
     int32_t internal_velocity;      // Stored velocity for internal motion
+    bool internal_running;
     int enable_gpio;
     bool enable_active_high;
     tmc2209_stepdir_config_t stepdir_cfg;

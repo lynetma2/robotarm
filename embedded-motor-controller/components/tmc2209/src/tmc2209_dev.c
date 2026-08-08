@@ -60,6 +60,28 @@ static uint8_t calculate_irun(uint32_t current_ma, uint16_t r_sense_mohm, bool *
     return (uint8_t)cs;
 }
 
+/**
+ * @brief Claim STEP/DIR pins and hold them at a safe idle level.
+ *
+ * A floating STEP pin causes phantom steps whenever VACTUAL == 0,
+ * so the library owns these pins from init time, even when the
+ * RMT pulse engine is not running.
+ */
+static void stepdir_pins_idle(const tmc2209_dev_t *dev)
+{
+    if (!dev->stepdir_cfg.enabled) {
+        return;
+    }
+    if (dev->stepdir_cfg.step_gpio >= 0) {
+        gpio_set_direction((gpio_num_t)dev->stepdir_cfg.step_gpio, GPIO_MODE_OUTPUT);
+        gpio_set_level((gpio_num_t)dev->stepdir_cfg.step_gpio, 0);
+    }
+    if (dev->stepdir_cfg.dir_gpio >= 0) {
+        gpio_set_direction((gpio_num_t)dev->stepdir_cfg.dir_gpio, GPIO_MODE_OUTPUT);
+        gpio_set_level((gpio_num_t)dev->stepdir_cfg.dir_gpio, 0);
+    }
+}
+
 // ============================================================
 // Internal Helpers: Microstep Conversion
 // ============================================================
@@ -114,6 +136,10 @@ esp_err_t tmc2209_init(tmc2209_dev_t *dev, const tmc2209_config_t *config)
     dev->enable_gpio = config->enable_gpio;
     dev->enable_active_high = config->enable_active_high;
     dev->stepdir_cfg = config->stepdir;
+    dev->internal_running = false;
+
+    // Hold STEP/DIR at a safe idle level so they can never float
+    stepdir_pins_idle(dev);
 
     // Configure ENN pin if provided, and start DISABLED for safety
     if (dev->enable_gpio >= 0) {
@@ -158,6 +184,8 @@ esp_err_t tmc2209_deinit(tmc2209_dev_t *dev)
 
     // Deinit the step dir engine
     tmc2209_stepdir_deinit(dev);
+
+    stepdir_pins_idle(dev);
 
     // Unregister from the port layer (ic_id is unique, so we don't need to pass uart_port)
     tmc2209_port_unregister(dev->ic_id);
@@ -455,10 +483,25 @@ esp_err_t tmc2209_set_internal_velocity(tmc2209_dev_t *dev, int32_t velocity)
     if (velocity < -8388608) velocity = -8388608;
 
     // Store the velocity in the struct.
-    // We don't write to hardware yet — that happens in start_internal_motion().
     dev->internal_velocity = velocity;
 
-    ESP_LOGI(TAG, "Internal velocity set to %ld (not yet applied)", (long)velocity);
+    // If the motor is currently running, apply the new velocity live.
+    // This is what makes ramping possible: the jog task calls this
+    // repeatedly with gradually increasing values.
+    if (dev->internal_running) {
+        if (dev->mutex != NULL) {
+            if (xSemaphoreTake(dev->mutex, portMAX_DELAY) != pdTRUE) {
+                return ESP_ERR_TIMEOUT;
+            }
+        }
+        tmc2209_writeRegister(dev->ic_id, TMC2209_VACTUAL, (uint32_t)velocity);
+        if (dev->mutex != NULL) {
+            xSemaphoreGive(dev->mutex);
+        }
+    }
+
+    // Downgraded to ESP_LOGD to avoid spamming the log during ramping
+    ESP_LOGD(TAG, "Internal velocity set to %ld", (long)velocity);
     return ESP_OK;
 }
 
@@ -478,10 +521,11 @@ esp_err_t tmc2209_start_internal_motion(tmc2209_dev_t *dev)
     }
 
     // Write the stored velocity to VACTUAL.
-    // The TMC2209 will immediately start generating STEP pulses.
     tmc2209_writeRegister(dev->ic_id, TMC2209_VACTUAL, (uint32_t)dev->internal_velocity);
 
     xSemaphoreGive(dev->mutex);
+
+    dev->internal_running = true;
 
     ESP_LOGI(TAG, "Internal motion started (velocity=%ld)", (long)dev->internal_velocity);
     return ESP_OK;
@@ -501,6 +545,8 @@ esp_err_t tmc2209_stop_internal_motion(tmc2209_dev_t *dev)
     tmc2209_writeRegister(dev->ic_id, TMC2209_VACTUAL, 0);
 
     xSemaphoreGive(dev->mutex);
+
+    dev->internal_running = false;
 
     ESP_LOGI(TAG, "Internal motion stopped");
     return ESP_OK;
