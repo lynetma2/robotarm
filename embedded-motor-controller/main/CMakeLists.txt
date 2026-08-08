@@ -10,4 +10,5 @@ idf_component_register(SRCS
                        REQUIRES
                             tmc2209
                             button
+                            pot
 )
