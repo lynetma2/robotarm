@@ -1,10 +1,11 @@
-idf_component_register(SRCS
-            "motor_tests.c"
-            "led_tests.c"
+idf_component_register(
+        SRCS
+            "jog_controller.c"
         INCLUDE_DIRS
             "include"
-        PRIV_REQUIRES
+        REQUIRES
             app_config
+        PRIV_REQUIRES
             rgb_led
             app_buttons
             tmc2209

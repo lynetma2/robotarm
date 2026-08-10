@@ -6,5 +6,5 @@ idf_component_register(SRCS
                        INCLUDE_DIRS
                             ""
                        REQUIRES
-                            test_suite
+                            jog_controller
 )

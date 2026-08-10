@@ -6,8 +6,7 @@
 #include "esp_flash.h"
 #include "esp_system.h"
 #include "esp_log.h"
-#include "led_tests.h"
-#include "motor_tests.h"
+#include "jog_controller.h"
 
 void app_main(void)
 {
@@ -35,18 +34,14 @@ void app_main(void)
            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
 
-    printf("Doing motor test now\n");
+    printf("Doing motor jog now\n");
 
-    // ============================================================
-    // SWAP THE TEST HERE:
-    // ============================================================
-    // motor_test_no_movement();
-    // motor_test_movement();
-    // motor_test_ramp();
-    // motor_test_stepdir();
-    // motor_test_buttons();
-    // motor_test_jog();
-    // motor_test_pot();
-    // motor_test_jog_pot();
-    led_test_rgb_cycle();
+    // Initialize and start the application
+    ESP_ERROR_CHECK(jog_controller_init());
+    jog_controller_start();
+
+    // Main thread can just idle or handle WiFi/OTA later
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10000));
+    }
 }
