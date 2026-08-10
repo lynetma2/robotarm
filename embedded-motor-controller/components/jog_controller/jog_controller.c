@@ -21,11 +21,19 @@ typedef enum {
     APP_STATE_JOG_CCW,
 } app_state_t;
 
+// Pulled counts out of the enums to prevent -Wswitch errors
 typedef enum {
     MOTOR_1 = 0,
     MOTOR_2,
-    MOTOR_COUNT,
 } motor_id_t;
+#define MOTOR_COUNT 2
+
+typedef enum {
+    PROFILE_MOTOR_1 = 0,
+    PROFILE_MOTOR_2,
+    PROFILE_BOTH,
+} jog_profile_t;
+#define PROFILE_COUNT 3
 
 typedef struct {
     tmc2209_dev_t dev;
@@ -33,29 +41,40 @@ typedef struct {
     bool running;
 } jog_motor_t;
 
-static volatile bool       s_btn2_held     = false;
-static volatile bool       s_btn3_held     = false;
-static volatile motor_id_t s_active_motor  = MOTOR_1;
-static volatile int32_t    s_current_speed = 0;   // signed, usteps/s
+static volatile bool          s_btn2_held     = false;
+static volatile bool          s_btn3_held     = false;
+static volatile jog_profile_t s_profile       = PROFILE_MOTOR_1;
+static volatile int32_t       s_current_speed = 0;   // signed, usteps/s
 static jog_motor_t s_motors[MOTOR_COUNT];
 static pot_t *s_pot = NULL;
 
-static const uint8_t s_motor_color[MOTOR_COUNT][3] = {
-    [MOTOR_1] = { 255, 0, 0 },   // red
-    [MOTOR_2] = { 0, 0, 255 },   // blue
+// Unified color map for all profiles
+static const uint8_t s_profile_color[PROFILE_COUNT][3] = {
+    [PROFILE_MOTOR_1] = { 255, 0, 0 },   // Red
+    [PROFILE_MOTOR_2] = { 0, 0, 255 },   // Blue
+    [PROFILE_BOTH]    = { 255, 0, 255 }, // Magenta
 };
 
 // ============================================================
 // Button callbacks (run in iot_button task: keep them trivial!)
 // ============================================================
-static void on_btn1_toggle(void *arg, void *data)
+static void on_btn1_single_click(void *arg, void *data)
 {
-    s_active_motor = (s_active_motor == MOTOR_1) ? MOTOR_2 : MOTOR_1;
-    s_current_speed = 0;   // new motor ramps up from standstill
-    rgb_led_set(s_motor_color[s_active_motor][0],
-                       s_motor_color[s_active_motor][1],
-                       s_motor_color[s_active_motor][2]);
-    ESP_LOGI(TAG, "Active motor -> %s", (s_active_motor == MOTOR_1) ? "M1" : "M2");
+    // Cycle: M1 -> M2 -> BOTH -> M1 ...
+    s_profile = (s_profile + 1) % PROFILE_COUNT;
+
+    // Safety: Reset the ramp so the newly activated motor(s)
+    // smoothly accelerate from 0 to the current pot position.
+    s_current_speed = 0;
+
+    // Use the color map instead of hardcoded values
+    rgb_led_set(s_profile_color[s_profile][0],
+                s_profile_color[s_profile][1],
+                s_profile_color[s_profile][2]);
+
+    ESP_LOGI(TAG, "Profile -> %s",
+        s_profile == PROFILE_MOTOR_1 ? "Motor 1" :
+        s_profile == PROFILE_MOTOR_2 ? "Motor 2" : "BOTH");
 }
 
 static void on_btn2_down(void *arg, void *data) { s_btn2_held = true;  }
@@ -187,10 +206,22 @@ static void jog_task(void *arg)
         s_current_speed = speed;
 
         // 4. Active motor follows the ramp; the other one is stopped
-        const motor_id_t active = s_active_motor;
-        const motor_id_t other  = (active == MOTOR_1) ? MOTOR_2 : MOTOR_1;
-        motor_apply(&s_motors[active], speed);
-        motor_apply(&s_motors[other], 0);
+        switch (s_profile) {
+            case PROFILE_MOTOR_1:
+                motor_apply(&s_motors[MOTOR_1], speed);
+                motor_apply(&s_motors[MOTOR_2], 0);
+                break;
+
+            case PROFILE_MOTOR_2:
+                motor_apply(&s_motors[MOTOR_1], 0);
+                motor_apply(&s_motors[MOTOR_2], speed);
+                break;
+
+            case PROFILE_BOTH:
+                motor_apply(&s_motors[MOTOR_1], speed);
+                motor_apply(&s_motors[MOTOR_2], speed);
+                break;
+        }
     }
 }
 
@@ -218,10 +249,18 @@ esp_err_t jog_controller_init(void)
     ESP_ERROR_CHECK(pot_create(&pot_cfg, &s_pot));
 
     ESP_ERROR_CHECK(rgb_led_init());
-    rgb_led_set(255, 0, 0);   // Motor 1 selected at boot
+
+    // Use the color map for the initial boot state
+    rgb_led_set(s_profile_color[PROFILE_MOTOR_1][0],
+                s_profile_color[PROFILE_MOTOR_1][1],
+                s_profile_color[PROFILE_MOTOR_1][2]);
 
     ESP_ERROR_CHECK(app_buttons_init());
-    ESP_ERROR_CHECK(app_buttons_register_cb(APP_BTN_1, BUTTON_PRESS_DOWN, on_btn1_toggle, NULL));
+
+    // Register SINGLE CLICK for profile cycling
+    ESP_ERROR_CHECK(app_buttons_register_cb(APP_BTN_1, BUTTON_SINGLE_CLICK, on_btn1_single_click, NULL));
+
+    // Register HOLD events for jogging
     ESP_ERROR_CHECK(app_buttons_register_cb(APP_BTN_2, BUTTON_PRESS_DOWN, on_btn2_down, NULL));
     ESP_ERROR_CHECK(app_buttons_register_cb(APP_BTN_2, BUTTON_PRESS_UP,   on_btn2_up,   NULL));
     ESP_ERROR_CHECK(app_buttons_register_cb(APP_BTN_3, BUTTON_PRESS_DOWN, on_btn3_down, NULL));
