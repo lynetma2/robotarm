@@ -1,0 +1,10 @@
+idf_component_register(
+        SRCS
+            "app_buttons.c"
+        INCLUDE_DIRS
+            "include"
+        REQUIRES
+            button
+        PRIV_REQUIRES
+            app_config
+)
