@@ -48,11 +48,11 @@ typedef enum {
 // Motor 2 (dedicated UART bus) — adjust to your wiring!
 // ============================================================
 #define HW_MOT2_UART_PORT     UART_NUM_1
-#define HW_MOT2_UART_TX       17
-#define HW_MOT2_UART_RX       18
+#define HW_MOT2_UART_TX       35
+#define HW_MOT2_UART_RX       36
 #define HW_MOT2_EN_GPIO       5
-#define HW_MOT2_STEP_GPIO     6
-#define HW_MOT2_DIR_GPIO      16
+#define HW_MOT2_STEP_GPIO     39
+#define HW_MOT2_DIR_GPIO      38
 #define HW_MOT2_MOTION_MODE   HW_MOTION_UART
 
 // ============================================================
