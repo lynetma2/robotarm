@@ -8,7 +8,7 @@
 #include "driver/uart.h"
 #include "tmc2209_dev.h"
 #include "app_buttons.h"
-#include "motor_tests.h"
+#include "include/motor_tests.h"
 #include "pot.h"
 
 static const char *TAG = "TMC_TEST";

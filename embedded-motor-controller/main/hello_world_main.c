@@ -6,6 +6,7 @@
 #include "esp_flash.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "led_tests.h"
 #include "motor_tests.h"
 
 void app_main(void)
@@ -46,5 +47,6 @@ void app_main(void)
     // motor_test_buttons();
     // motor_test_jog();
     // motor_test_pot();
-    motor_test_jog_pot();
+    // motor_test_jog_pot();
+    led_test_rgb_cycle();
 }

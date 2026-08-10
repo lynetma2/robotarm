@@ -1,0 +1,13 @@
+idf_component_register(SRCS
+            "motor_tests.c"
+            "app_buttons.c"
+            "led_tests.c"
+        PRIV_REQUIRES
+            esp_driver_gpio
+            tmc2209
+            button
+            pot
+            led_strip
+        INCLUDE_DIRS
+            "include"
+)

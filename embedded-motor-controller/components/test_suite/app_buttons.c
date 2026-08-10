@@ -2,7 +2,7 @@
 #include "esp_log.h"
 #include "iot_button.h"
 #include "button_gpio.h"
-#include "app_buttons.h"
+#include "include/app_buttons.h"
 
 static const char *TAG = "app_buttons";
 
